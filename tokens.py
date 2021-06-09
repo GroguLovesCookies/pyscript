@@ -102,6 +102,11 @@ def read(text, ignore_exception=False):
         elif char == ")":
             tokens.append(Token(TT_BRACKET, TT_RPAREN))
 
+        # Comment checks
+        elif char == "#":
+            i = len(text)
+            continue
+
         # List checks
         elif char == "[":
             listed = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True)[0]
