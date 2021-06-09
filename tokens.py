@@ -1,6 +1,7 @@
 # Imports
 import sys
 from vars import set_var, global_vars
+from nodes import *
 
 
 # Define tokens
@@ -13,11 +14,12 @@ TT_RPAREN = "RPAREN"
 TT_LPAREN = "LPAREN"
 TT_BRACKET = "BRACKET"
 TT_INT = "INT"
+TT_STR = "STR"
 TT_FLOAT = "FLOAT"
+TT_LIST = "LIST"
 TT_VAR = "VAR"
 TT_EQUALS = "EQUALS"
 TT_KEYWORD = "KW"
-TT_STR = "STR"
 
 
 # Define pseudo-types
@@ -27,6 +29,9 @@ PT_REFERENCE = "REFERNCING"
 
 # Define keywords
 KEYWORDS = ["readonly"]
+
+# Define types
+types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST]
 
 
 # Class Token
@@ -44,7 +49,7 @@ class Token:
 
 
 # Reading function
-def read(text):
+def read(text, ignore_exception=False):
     """A function to tokenize input text"""
 
     # Set initial state
@@ -58,7 +63,8 @@ def read(text):
         # If at the end of list, make sure of correct
         # syntax, add implicit bracketing, and return
         if i >= len(list(text)):
-            analyse_tokens(tokens)
+            if not ignore_exception:
+                analyse_tokens(tokens)
             bracketized, count = bracketize(tokens)
             assign_pseudo_types(tokens)
             return bracketized, tokens, count
@@ -95,6 +101,16 @@ def read(text):
             tokens.append(Token(TT_BRACKET, TT_LPAREN))
         elif char == ")":
             tokens.append(Token(TT_BRACKET, TT_RPAREN))
+
+        # List checks
+        elif char == "[":
+            listed = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True)[0]
+            i = get_closing_text(text[i:], "[", "]") + i
+            j = 0
+            while j < len(listed):
+                listed[j] = calculate(parse([listed[j]]))
+                j += 1
+            tokens.append(Token(TT_LIST, listed))
 
         # Check for equals
         elif char == "=":
@@ -232,39 +248,31 @@ def assign_pseudo_types(tokenized):
         i += 1
 
 
-class BinOpNode:
-    """A class to define operators"""
-    def __init__(self, operand_a, operand_b, symbol, evaluation):
-        self.operand_a = operand_a
-        self.operand_b = operand_b
-        self.symbol = symbol
-        self.evaluation = evaluation
+def text_extract(expr, opening="(", closing=")"):
+    # Start initial state: i = 1 because
+    # it is assumed that the first token
+    # is an opening bracket.
+    bracket_no = 1
+    out = []
+    i = 1
 
-    def __repr__(self):
-        return f"{self.operand_a} {self.symbol} {self.operand_b}"
+    # Loop
+    while i < len(expr) and bracket_no > 0:
+        char = expr[i]
+        if char == opening:
+            bracket_no += 1 if i > 0 else 0
+        if char == closing:
+            bracket_no -= 1
 
-    def get_value(self):
-        """A function to calculate the value of a node"""
+        out.append(char)
+        i += 1
 
-        # This is a recursive data structure: the
-        # nodes can be either operators or integers
-        if type(self.operand_a) == BinOpNode:
-            self.operand_a = self.operand_a.get_value()
-        if type(self.operand_b) == BinOpNode:
-            self.operand_b = self.operand_b.get_value()
+    del out[-1]
 
-        return self.evaluation(self.operand_a, self.operand_b)
-
-
-class StrNode:
-    def __init__(self, value):
-        self.value = value
-
-    def get_value(self):
-        return self.value
+    return "".join(out)
 
 
-def bracket_extract(expr):
+def bracket_extract(expr, opening=TT_LPAREN, closing=TT_RPAREN):
     """A function to get the part between brackets"""
 
     # Start initial state: i = 1 because
@@ -277,9 +285,9 @@ def bracket_extract(expr):
     # Loop
     while i < len(expr) and bracket_no > 0:
         char = expr[i]
-        if char.val == TT_LPAREN:
+        if char.val == opening:
             bracket_no += 1 if i > 0 else 0
-        if char.val == TT_RPAREN:
+        if char.val == closing:
             bracket_no -= 1
 
         out.append(char)
@@ -318,14 +326,28 @@ def bracketize(tokenized):
     return output, inserted
 
 
-def get_closing(expr):
+def get_closing(expr, opening=TT_LPAREN, closing=TT_RPAREN):
     bracket_no = 1
     i = 1
     while i < len(expr) and bracket_no > 0:
         char = expr[i]
-        if char.val == TT_LPAREN:
+        if char.val == opening:
             bracket_no += 1 if i > 0 else 0
-        if char.val == TT_RPAREN:
+        if char.val == closing:
+            bracket_no -= 1
+        i += 1
+
+    return i-1
+
+
+def get_closing_text(expr, opening="(", closing=")"):
+    bracket_no = 1
+    i = 1
+    while i < len(expr) and bracket_no > 0:
+        char = expr[i]
+        if char == opening:
+            bracket_no += 1 if i > 0 else 0
+        if char == closing:
             bracket_no -= 1
         i += 1
 
@@ -362,10 +384,12 @@ def parse(tokenized, raw=None, count=0):
         raw = tokenized[:]
     result = [tokenized[0]]
 
-    if len(tokenized) == 1 and (tokenized[0].type == TT_FLOAT or tokenized[0].type == TT_INT
-                                or tokenized[0].type == TT_STR):
+    if len(tokenized) == 1 and tokenized[0].type in types:
         if tokenized[0].type == TT_STR:
-            return StrNode(tokenized[0].val)
+            return ValueNode(tokenized[0].val)
+        if tokenized[0].type == TT_LIST:
+            return ValueNode(tokenized[0].val)
+
         return BinOpNode(tokenized[0].val, 0, "+", lambda a, b: a + b)
 
     i = 0
