@@ -1,1 +1,10 @@
-numbers = [1, 2, 3, 4, 5, 6, "Nick"]
+foo = 5
+bar = 6
+foobar = foo+bar
+a = 2*5
+b = 9*7
+c = -10--10
+name = "Grogu"
+names = ["Grogu", "Baby Yoda", "The Child", "Green Thingy"]
+numbers = [1, 2, 5, 6, 10, 89, 5]
+names_and_numbers = [1, "Grogu", 2, "Baby Yoda", 3, 6, "Green Thingy"]

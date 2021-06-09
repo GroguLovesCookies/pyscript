@@ -83,7 +83,7 @@ def read(text, ignore_exception=False):
 
             # If the latest is an operator or an opening
             # bracket, it is a negative sign, not operator
-            elif latest.type is None or latest.val == TT_LPAREN:
+            elif latest.type is None or latest.val == TT_LPAREN or latest.type == TT_EQUALS:
                 multiplier = -1
 
             # If you get here, it is an operator

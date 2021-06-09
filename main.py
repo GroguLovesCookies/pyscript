@@ -5,4 +5,7 @@ from vars import global_vars
 with open("print.pyscript", newline="") as f:
     for line in f:
         tokenized, raw, count = read(line)
-        print(parse(tokenized))
+        calculate(parse(tokenized, raw, count))
+
+for var in global_vars:
+    print(var)
