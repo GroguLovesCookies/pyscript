@@ -9,7 +9,8 @@ c = -10--10 # Set c to the result of -10--10
 name = "Grogu" # Set the name to "Grogu"
 
 names = ["Grogu", "Baby Yoda", "The Child", "Green Thingy"] # Set names to various aliases of the adorable Baby Yoda
-numbers = [1, 2, 5, 6, 10, 89, 5] # Set numbers to sum random numbers you picked
+numbers = [1, 2, 5, 6, 10, 89, 5] # Set numbers to some random numbers you picked
 
 names_and_numbers = [1, "Grogu", 2, "Baby Yoda", 3, 6, "Green Thingy"] # Display how this awesome language supports
                                                                        # various types in one single list
+readonly readonly_var = 90

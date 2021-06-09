@@ -438,7 +438,8 @@ def parse(tokenized, raw=None, count=0):
                     name = previous.val
                     bracketized, unused = bracketize(raw[i+1-count:])
                     value = calculate(parse(bracketized))
-                    result = BinOpNode(name, value, "=", lambda a, b: set_var(a, b, readonly_flag))
+                    local_flag = readonly_flag
+                    result = BinOpNode(name, value, "=", lambda a, b: set_var(a, b, local_flag))
                     readonly_flag = False
                     return result
                 else:

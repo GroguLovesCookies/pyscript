@@ -1,0 +1,11 @@
+# This file shows various ways to crash this thing.
+
+# Way 1: Invalid Syntax
+syntax_error_line = 90 80
+
+# Way 2: Reference a variable before creating
+var = non_existent_var
+
+# Way 3: Modify a readonly variable
+readonly readonly_var = 10
+readonly_var = 5
