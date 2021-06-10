@@ -30,4 +30,4 @@ foo = 10
 ```
 Should give:
 ```
-AssignmentError: trying to change readonly
+AssignmentError: Editing readonly variable 'foo'
