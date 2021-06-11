@@ -31,3 +31,9 @@ foo = 10
 Should give:
 ```
 AssignmentError: Editing readonly variable 'foo'
+```
+
+#### Types
+1. Lists
+1. Strings
+1. Integers and Floats<br />
