@@ -49,166 +49,170 @@ class Token:
 
 
 # Reading function
-def read(text, ignore_exception=False):
+def read(text, ignore_exception=False, group_by=""):
     """A function to tokenize input text"""
 
-    # Set initial state
-    tokens = []
-    i = 0
-    multiplier = 1
-    latest = None
+    if group_by != "":
+        results = [read(item)[0] for item in text.split(group_by)]
+        return results
+    else:
+        # Set initial state
+        tokens = []
+        i = 0
+        multiplier = 1
+        latest = None
 
-    # Read loop
-    while True:
-        # If at the end of list, make sure of correct
-        # syntax, add implicit bracketing, and return
-        if i >= len(list(text)):
-            if not ignore_exception:
-                analyse_tokens(tokens)
-            bracketized, count = bracketize(tokens)
-            assign_pseudo_types(tokens)
-            return bracketized, tokens, count
+        # Read loop
+        while True:
+            # If at the end of list, make sure of correct
+            # syntax, add implicit bracketing, and return
+            if i >= len(list(text)):
+                if not ignore_exception:
+                    analyse_tokens(tokens)
+                bracketized, count = bracketize(tokens)
+                assign_pseudo_types(tokens)
+                return bracketized, tokens, count
 
-        # Analyse character
-        char = text[i]
+            # Analyse character
+            char = text[i]
 
-        # Operator checks
-        if char == "+":
-            tokens.append(Token(None, TT_PLUS))
-        elif char == "-":
-            # If the "-" sign is at beginning (i = 0), it
-            # is a negative sign, not operator
-            if i == 0:
-                multiplier = -1
+            # Operator checks
+            if char == "+":
+                tokens.append(Token(None, TT_PLUS))
+            elif char == "-":
+                # If the "-" sign is at beginning (i = 0), it
+                # is a negative sign, not operator
+                if i == 0:
+                    multiplier = -1
 
-            # If the latest is an operator or an opening
-            # bracket, it is a negative sign, not operator
-            elif latest.type is None or latest.val == TT_LPAREN or latest.type == TT_EQUALS:
-                multiplier = -1
+                # If the latest is an operator or an opening
+                # bracket, it is a negative sign, not operator
+                elif latest.type is None or latest.val == TT_LPAREN or latest.type == TT_EQUALS:
+                    multiplier = -1
 
-            # If you get here, it is an operator
-            else:
-                tokens.append(Token(None, TT_MINUS))
-        elif char == "*":
-            tokens.append(Token(None, TT_MUL))
-        elif char == "/":
-            tokens.append(Token(None, TT_DIV))
-        elif char == "^":
-            tokens.append(Token(None, TT_POWER))
+                # If you get here, it is an operator
+                else:
+                    tokens.append(Token(None, TT_MINUS))
+            elif char == "*":
+                tokens.append(Token(None, TT_MUL))
+            elif char == "/":
+                tokens.append(Token(None, TT_DIV))
+            elif char == "^":
+                tokens.append(Token(None, TT_POWER))
 
-        # Bracket checks
-        elif char == "(":
-            tokens.append(Token(TT_BRACKET, TT_LPAREN))
-        elif char == ")":
-            tokens.append(Token(TT_BRACKET, TT_RPAREN))
+            # Bracket checks
+            elif char == "(":
+                tokens.append(Token(TT_BRACKET, TT_LPAREN))
+            elif char == ")":
+                tokens.append(Token(TT_BRACKET, TT_RPAREN))
 
-        # Comment checks
-        elif char == "#":
-            i = len(text)
-            continue
+            # Comment checks
+            elif char == "#":
+                i = len(text)
+                continue
 
-        # List checks
-        elif char == "[":
-            listed = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True)[0]
-            i = get_closing_text(text[i:], "[", "]") + i
-            j = 0
-            while j < len(listed):
-                listed[j] = calculate(parse([listed[j]]))
-                j += 1
-            tokens.append(Token(TT_LIST, listed))
+            # List checks
+            elif char == "[":
+                listed = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True, group_by=",")
+                i = get_closing_text(text[i:], "[", "]") + i
+                j = 0
+                while j < len(listed):
+                    listed[j] = calculate(parse(listed[j]))
+                    j += 1
+                tokens.append(Token(TT_LIST, listed))
 
-        # Check for equals
-        elif char == "=":
-            tokens.append(Token(TT_EQUALS, TT_EQUALS))
-        # Check for start of number: syntax like ".2" is
-        # not supported as of 9/6/2021: only "0.2" will
-        # be accepted
-        if char.isnumeric():
-            # Start initial state of number reader
-            number = ""
-            dot_count = 0
+            # Check for equals
+            elif char == "=":
+                tokens.append(Token(TT_EQUALS, TT_EQUALS))
+            # Check for start of number: syntax like ".2" is
+            # not supported as of 9/6/2021: only "0.2" will
+            # be accepted
+            if char.isnumeric():
+                # Start initial state of number reader
+                number = ""
+                dot_count = 0
 
-            # Number can have digits or a decimal point
-            while char.isnumeric() or char == ".":
-                # Check if number is decimal point
-                if char == ".":
-                    # It is a decimal point
-                    if dot_count > 0:
-                        # Make sure there is only one
-                        # point
-                        i += 1
-                        if i < len(list(text)):
-                            char = text[i]
-                        continue
+                # Number can have digits or a decimal point
+                while char.isnumeric() or char == ".":
+                    # Check if number is decimal point
+                    if char == ".":
+                        # It is a decimal point
+                        if dot_count > 0:
+                            # Make sure there is only one
+                            # point
+                            i += 1
+                            if i < len(list(text)):
+                                char = text[i]
+                            continue
+                        else:
+                            dot_count += 1
+                            i += 1
+                            if i < len(list(text)):
+                                number += char
+                                char = text[i]
+                            else:
+                                break
                     else:
-                        dot_count += 1
+                        # The letter is a digit
+                        number += char
                         i += 1
                         if i < len(list(text)):
-                            number += char
                             char = text[i]
                         else:
                             break
+                if dot_count > 0:
+                    # If there is more than 0 dots, it is a float...
+                    tokens.append(Token(TT_FLOAT, float(number) * multiplier))
                 else:
-                    # The letter is a digit
-                    number += char
+                    # Otherwise, it is an int.
+                    tokens.append(Token(TT_INT, int(number) * multiplier))
+                multiplier = 1
+
+            # Look for variables/keywords
+            # Only allowed characters are letters and underscores
+            elif char.isalpha() or char == "_":
+                # Set initial state for variable reader
+                name = ""
+
+                # Loop until un-matching character is found
+                while char.isalpha() or char == "_":
+                    # Add letters and go to next one
+                    name += char
                     i += 1
-                    if i < len(list(text)):
+
+                    # Make sure to not go over the end of text
+                    if i < len(text):
                         char = text[i]
                     else:
                         break
-            if dot_count > 0:
-                # If there is more than 0 dots, it is a float...
-                tokens.append(Token(TT_FLOAT, float(number) * multiplier))
-            else:
-                # Otherwise, it is an int.
-                tokens.append(Token(TT_INT, int(number) * multiplier))
-            multiplier = 1
 
-        # Look for variables/keywords
-        # Only allowed characters are letters and underscores
-        elif char.isalpha() or char == "_":
-            # Set initial state for variable reader
-            name = ""
-
-            # Loop until un-matching character is found
-            while char.isalpha() or char == "_":
-                # Add letters and go to next one
-                name += char
-                i += 1
-
-                # Make sure to not go over the end of text
-                if i < len(text):
-                    char = text[i]
+                # Check if word is keyword or variable
+                if name in KEYWORDS:
+                    tokens.append(Token(TT_KEYWORD, name))
                 else:
-                    break
+                    tokens.append(Token(TT_VAR, name))
 
-            # Check if word is keyword or variable
-            if name in KEYWORDS:
-                tokens.append(Token(TT_KEYWORD, name))
-            else:
-                tokens.append(Token(TT_VAR, name))
-
-        # Look for strings
-        elif char == "\"":
-            # Set initial state
-            string = r""
-            if i < len(text) - 1:
-                i += 1
-                char = text[i]
-
-            while char != "\"" and i < len(text):
-                string += char
-                i += 1
-                if i < len(text):
+            # Look for strings
+            elif char == "\"":
+                # Set initial state
+                string = r""
+                if i < len(text) - 1:
+                    i += 1
                     char = text[i]
 
-            tokens.append(Token(TT_STR, string))
-            i += 1
-        else:
-            i += 1
-        if len(tokens) > 0:
-            # Get latest
-            latest = tokens[-1]
+                while char != "\"" and i < len(text):
+                    string += char
+                    i += 1
+                    if i < len(text):
+                        char = text[i]
+
+                tokens.append(Token(TT_STR, string))
+                i += 1
+            else:
+                i += 1
+            if len(tokens) > 0:
+                # Get latest
+                latest = tokens[-1]
 
 
 # Analyse tokens

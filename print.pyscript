@@ -13,4 +13,7 @@ numbers = [1, 2, 5, 6, 10, 89, 5] # Set numbers to some random numbers you picke
 
 names_and_numbers = [1, "Grogu", 2, "Baby Yoda", 3, 6, "Green Thingy"] # Display how this awesome language supports
                                                                        # various types in one single list
+
+operator_list = [1, 2, 3, 4, 5, 6, 1+2, 3+4, 5+6]
+
 readonly readonly_var = 90
