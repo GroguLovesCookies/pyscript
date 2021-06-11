@@ -16,6 +16,7 @@ TT_BRACKET = "BRACKET"
 TT_INT = "INT"
 TT_STR = "STR"
 TT_FLOAT = "FLOAT"
+TT_BOOL = "BOOL"
 TT_LIST = "LIST"
 TT_VAR = "VAR"
 TT_EQUALS = "EQUALS"
@@ -28,10 +29,16 @@ PT_REFERENCE = "REFERNCING"
 
 
 # Define keywords
-KEYWORDS = ["readonly"]
+KW_READONLY = "readonly"
+KW_TRUE = "True"
+KW_FALSE = "False"
+KW_AND = "and"
+KW_OR = "or"
+KW_XOR = "xor"
+KEYWORDS = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None}
 
 # Define types
-types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST]
+types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
 
 
 # Class Token
@@ -187,8 +194,14 @@ def read(text, ignore_exception=False, group_by=""):
                         break
 
                 # Check if word is keyword or variable
-                if name in KEYWORDS:
-                    tokens.append(Token(TT_KEYWORD, name))
+                if name in KEYWORDS.keys():
+                    kw_type = KEYWORDS[name]
+                    if kw_type == TT_BOOL:
+                        if name == "True":
+                            name = True
+                        else:
+                            name = False
+                    tokens.append(Token(kw_type, name))
                 else:
                     tokens.append(Token(TT_VAR, name))
 
@@ -394,12 +407,7 @@ def parse(tokenized, raw=None, count=0):
     result = [tokenized[0]]
 
     if len(tokenized) == 1 and tokenized[0].type in types:
-        if tokenized[0].type == TT_STR:
-            return ValueNode(tokenized[0].val)
-        if tokenized[0].type == TT_LIST:
-            return ValueNode(tokenized[0].val)
-
-        return BinOpNode(tokenized[0].val, 0, "+", lambda a, b: a + b)
+        return ValueNode(tokenized[0].val)
 
     i = 0
     readonly_flag = False
@@ -436,6 +444,13 @@ def parse(tokenized, raw=None, count=0):
                 result = BinOpNode(previous_node, next_node, "/", lambda a, b: a / b)
             elif token.val == TT_POWER:
                 result = BinOpNode(previous_node, next_node, "^", lambda a, b: a ** b)
+
+            elif token.val == KW_AND:
+                result = BinOpNode(previous_node, next_node, "and", lambda a, b: a and b)
+            elif token.val == KW_OR:
+                result = BinOpNode(previous_node, next_node, "or", lambda a, b: a or b)
+            elif token.val == KW_XOR:
+                result = BinOpNode(previous_node, next_node, "xor", lambda a, b: (a or b) and not (a and b))
         elif token.type == TT_EQUALS:
             if previous is not None:
                 if previous.type == TT_VAR:
@@ -453,7 +468,7 @@ def parse(tokenized, raw=None, count=0):
                 print("SyntaxError: Invalid Syntax")
                 sys.exit(1)
         elif token.type == TT_KEYWORD:
-            if token.val == "readonly":
+            if token.val == KW_READONLY:
                 if i < len(tokenized)-1:
                     if tokenized[i+1].type == TT_VAR:
                         readonly_flag = True
