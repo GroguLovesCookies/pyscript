@@ -21,6 +21,7 @@ TT_LIST = "LIST"
 TT_VAR = "VAR"
 TT_EQUALS = "EQUALS"
 TT_KEYWORD = "KW"
+TT_UNIT = "DUMMY"
 
 
 # Define pseudo-types
@@ -35,10 +36,16 @@ KW_FALSE = "False"
 KW_AND = "and"
 KW_OR = "or"
 KW_XOR = "xor"
-KEYWORDS = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None}
+KW_NOT = "not"
+KEYWORDS = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
+            KW_NOT: None}
 
 # Define types
 types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
+
+
+# Define unary operators
+un_ops = [KW_NOT]
 
 
 # Class Token
@@ -53,6 +60,47 @@ class Token:
         if self.type is None:
             return self.val
         return f"{self.type}:{self.val}"
+
+
+def prep_unary(tokenized):
+    start_index_stack = []
+    i = 0
+    start_index = -1
+    insert_number = 0
+    while i < len(tokenized):
+        token = tokenized[i]
+        if token.val == KW_NOT:
+            if start_index < 0:
+                start_index = i
+        else:
+            if token.val == TT_LPAREN:
+                start_index_stack.append(start_index)
+                start_index = -1
+            elif token.val == TT_RPAREN:
+                start_index = start_index_stack.pop()
+            elif start_index >= 0:
+                thing = tokenized[start_index: i+1-insert_number]
+                del tokenized[start_index: i-insert_number]
+                i -= len(thing)-1
+                tokenized[start_index] = Token(TT_UNIT, thing)
+                insert_number += 1
+                start_index = -1
+        i += 1
+    return tokenized
+
+
+def unwrap_unary(tokenized):
+    i = 0
+    while i < len(tokenized):
+        token = tokenized[i]
+        if token.type == TT_UNIT:
+            del tokenized[i]
+            tokenized.insert(i, Token(TT_BRACKET, TT_RPAREN))
+            for item in reversed(bracketize(token.val, True)[0]):
+                tokenized.insert(i, item)
+            tokenized.insert(i, Token(TT_BRACKET, TT_LPAREN))
+        i += 1
+    return tokenized
 
 
 # Reading function
@@ -76,9 +124,12 @@ def read(text, ignore_exception=False, group_by=""):
             if i >= len(list(text)):
                 if not ignore_exception:
                     analyse_tokens(tokens)
-                bracketized, count = bracketize(tokens)
+                raw = tokens[:]
+                tokens = prep_unary(tokens)
+                tokens, count = bracketize(tokens)
+                tokens = unwrap_unary(tokens)
                 assign_pseudo_types(tokens)
-                return bracketized, tokens, count
+                return tokens, raw, count
 
             # Analyse character
             char = text[i]
@@ -320,31 +371,45 @@ def bracket_extract(expr, opening=TT_LPAREN, closing=TT_RPAREN):
     return out
 
 
-def bracketize(tokenized):
+def bracketize(tokenized, unary=False):
     output = tokenized[:]
     op_no = 0
     op_stack = []
-    i = len(tokenized)-1
+    bracket_stack = []
+    i = len(tokenized)-1 if not unary else 0
     inserted = 0
-    while i >= 0:
+    loop_condition = i >= 0 if not unary else i < len(tokenized)
+    while loop_condition:
         token = tokenized[i]
 
         if token.type is None:
             op_no += 1
             if op_no > 1:
-                if tokenized[i + 1].type == TT_BRACKET:
-                    output.insert(get_closing(tokenized[i+1:]) + i + 2 + (op_no - 2), Token(TT_BRACKET, TT_RPAREN))
+                if not unary:
+                    if token.val not in un_ops:
+                        if tokenized[i + 1].type == TT_BRACKET:
+                            output.insert(get_closing(tokenized[i+1:]) + i + 2 + (op_no - 2), Token(TT_BRACKET, TT_RPAREN))
+                        else:
+                            output.insert(i+2 + (op_no - 2), Token(TT_BRACKET, TT_RPAREN))
+                        output.insert(0, Token(TT_BRACKET, TT_LPAREN))
                 else:
-                    output.insert(i+2 + (op_no - 2), Token(TT_BRACKET, TT_RPAREN))
-                output.insert(0, Token(TT_BRACKET, TT_LPAREN))
+                    if token.val in un_ops:
+                        output.insert(i + (op_no - 2), Token(TT_BRACKET, TT_LPAREN))
+                        output.append(Token(TT_BRACKET, TT_RPAREN))
                 inserted += 1
         elif token.val == TT_RPAREN:
-            op_stack.append(op_no)
-            op_no = 0
+            if not unary:
+                op_stack.append(op_no)
+                op_no = 0
         elif token.val == TT_LPAREN:
-            op_no = op_stack.pop(len(op_stack)-1)
+            if not unary:
+                op_no = op_stack.pop(len(op_stack)-1)
+        elif token.type == "DUMMY":
+            if not unary:
+                token.val = bracketize(token.val)[0]
 
-        i -= 1
+        i += 1 if unary else -1
+        loop_condition = i >= 0 if not unary else i < len(tokenized)
     return output, inserted
 
 
@@ -360,6 +425,20 @@ def get_closing(expr, opening=TT_LPAREN, closing=TT_RPAREN):
         i += 1
 
     return i-1
+
+
+def get_opening(expr, opening=TT_LPAREN, closing=TT_RPAREN):
+    bracket_no = 1
+    i = len(expr)-2
+    while i > 0 and bracket_no > 0:
+        char = expr[i]
+        if char.val == closing:
+            bracket_no += 1 if i > 0 else 0
+        if char.val == opening:
+            bracket_no -= 1
+        i -= 1
+
+    return i+1
 
 
 def get_closing_text(expr, opening="(", closing=")"):
@@ -422,17 +501,26 @@ def parse(tokenized, raw=None, count=0):
             next = tokenized[i+1]
 
         if token.type is None:
-            if next is None or previous is None:
-                print("SyntaxError: Invalid Syntax")
-                sys.exit(1)
+            if token.val not in un_ops:
+                if next is None or previous is None:
+                    print("SyntaxError: Invalid Syntax")
+                    sys.exit(1)
+            else:
+                if next is None:
+                    print("SyntaxError: Invalid Syntax")
+                    sys.exit(1)
 
-            next_node = next.val
-            previous_node = previous.val
-            if next.val == TT_LPAREN:
-                next_node = parse(bracket_extract(tokenized[i + 1:]))
-                i = get_closing(tokenized[i+1:]) + i + 1
-            if previous.val == TT_RPAREN:
-                previous_node = parse(bracket_extract(tokenized[:i]))
+            previous_node = None
+            next_node = None
+            if next is not None:
+                next_node = next.val
+                if next.val == TT_LPAREN:
+                    next_node = parse(bracket_extract(tokenized[i + 1:]))
+                    i = get_closing(tokenized[i+1:]) + i + 1
+            if previous is not None:
+                previous_node = previous.val
+                if previous.val == TT_RPAREN:
+                    previous_node = result#parse(bracket_extract(tokenized[get_opening(tokenized[:i]):i]))
 
             if token.val == TT_PLUS:
                 result = BinOpNode(previous_node, next_node, "+", lambda a, b: a + b)
@@ -451,11 +539,15 @@ def parse(tokenized, raw=None, count=0):
                 result = BinOpNode(previous_node, next_node, "or", lambda a, b: a or b)
             elif token.val == KW_XOR:
                 result = BinOpNode(previous_node, next_node, "xor", lambda a, b: (a or b) and not (a and b))
+            elif token.val == KW_NOT:
+                result = UnOpNode(next_node, "not", lambda a: not a)
         elif token.type == TT_EQUALS:
             if previous is not None:
                 if previous.type == TT_VAR:
                     name = previous.val
-                    bracketized, unused = bracketize(raw[i+1-count:])
+                    bracketized = prep_unary(raw[i+1-count:])
+                    bracketized, unused = bracketize(bracketized)
+                    bracketized = unwrap_unary(bracketized)
                     value = calculate(parse(bracketized))
                     local_flag = readonly_flag
                     result = BinOpNode(name, value, "=", lambda a, b: set_var(a, b, local_flag))

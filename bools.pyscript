@@ -1,9 +1,1 @@
-a = True
-b = False
-c = True
-a_or_b = a or b
-a_or_c = a or c
-a_and_b = a and b
-a_and_c = a and c
-a_xor_b = a xor b
-a_xor_c = a xor c
+a = False or not not True and True
