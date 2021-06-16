@@ -1,8 +1,14 @@
-from tokens import calculate, parse, read, prep_unary, bracketize, unwrap_unary
+from tokens import calculate, parse, read
 from vars import global_vars
+import sys
 
 
-with open("math.pyscript", newline="") as f:
+filename = "print.pyscript"
+if len(sys.argv) > 1:
+    filename = sys.argv[1]
+
+
+with open("pyscript/" + filename, newline="") as f:
     for line in f:
         tokenized, raw, count = read(line.strip("\n").strip())
 
