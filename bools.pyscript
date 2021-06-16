@@ -1,1 +1,1 @@
-a = False or not not True and True
+a = not not True

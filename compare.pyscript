@@ -1,0 +1,4 @@
+a = 2
+b = 6
+a_less_b = a < b
+a_greater_b = a > b

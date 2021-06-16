@@ -10,6 +10,9 @@ TT_MINUS = "MINUS"
 TT_MUL = "MUL"
 TT_DIV = "DIV"
 TT_POWER = "POWER"
+TT_MODULO = "MOD"
+TT_GREATER = "GREATER THAN"
+TT_LESS = "LESS THAN"
 TT_RPAREN = "RPAREN"
 TT_LPAREN = "LPAREN"
 TT_BRACKET = "BRACKET"
@@ -157,6 +160,12 @@ def read(text, ignore_exception=False, group_by=""):
                 tokens.append(Token(None, TT_DIV))
             elif char == "^":
                 tokens.append(Token(None, TT_POWER))
+            elif char == "%":
+                tokens.append(Token(None, TT_MODULO))
+            elif char == ">":
+                tokens.append(Token(None, TT_GREATER))
+            elif char == "<":
+                tokens.append(Token(None, TT_LESS))
 
             # Bracket checks
             elif char == "(":
@@ -532,6 +541,13 @@ def parse(tokenized, raw=None, count=0):
                 result = BinOpNode(previous_node, next_node, "/", lambda a, b: a / b)
             elif token.val == TT_POWER:
                 result = BinOpNode(previous_node, next_node, "^", lambda a, b: a ** b)
+            elif token.val == TT_MODULO:
+                result = BinOpNode(previous_node, next_node, "%", lambda a, b: a % b)
+
+            elif token.val == TT_GREATER:
+                result = BinOpNode(previous_node, next_node, ">", lambda a, b: a > b)
+            elif token.val == TT_LESS:
+                result = BinOpNode(previous_node, next_node, "<", lambda a, b: a < b)
 
             elif token.val == KW_AND:
                 result = BinOpNode(previous_node, next_node, "and", lambda a, b: a and b)
