@@ -8,10 +8,13 @@ class Variable:
         self.readonly = readonly
 
     def __str__(self):
+        value = self.value
+        if type(self.value) == str:
+            value = f"\"{self.value}\""
         if not self.readonly:
-            return f"{self.name} = {self.value}"
+            return f"{self.name} = {value}"
         else:
-            return f"readonly {self.name} = {self.value}"
+            return f"readonly {self.name} = {value}"
 
 
 def create_var(name, value, readonly=False):

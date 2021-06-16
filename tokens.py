@@ -106,12 +106,36 @@ def unwrap_unary(tokenized):
     return tokenized
 
 
+def split_list(text, character=" ", strip=False):
+    splitted = []
+    ignore = False
+    current = ""
+
+    for char in text:
+        if char == "\"":
+            ignore = not ignore
+            current += char
+        elif char == character:
+            if not ignore:
+                splitted.append(current if not strip else current.strip())
+                current = ""
+            else:
+                current += char
+        else:
+            current += char
+
+    if current != "":
+        splitted.append(current if not strip else current.strip())
+
+    return splitted
+
+
 # Reading function
 def read(text, ignore_exception=False, group_by=""):
     """A function to tokenize input text"""
 
     if group_by != "":
-        results = [read(item)[0] for item in text.split(group_by)]
+        results = [read(item)[0] for item in split_list(text, ",", True)]
         return results
     else:
         # Set initial state
@@ -384,7 +408,6 @@ def bracketize(tokenized, unary=False):
     output = tokenized[:]
     op_no = 0
     op_stack = []
-    bracket_stack = []
     i = len(tokenized)-1 if not unary else 0
     inserted = 0
     loop_condition = i >= 0 if not unary else i < len(tokenized)
@@ -397,7 +420,8 @@ def bracketize(tokenized, unary=False):
                 if not unary:
                     if token.val not in un_ops:
                         if tokenized[i + 1].type == TT_BRACKET:
-                            output.insert(get_closing(tokenized[i+1:]) + i + 2 + (op_no - 2), Token(TT_BRACKET, TT_RPAREN))
+                            output.insert(get_closing(tokenized[i+1:]) + i + 2 + (op_no - 2), Token(TT_BRACKET,
+                                                                                                    TT_RPAREN))
                         else:
                             output.insert(i+2 + (op_no - 2), Token(TT_BRACKET, TT_RPAREN))
                         output.insert(0, Token(TT_BRACKET, TT_LPAREN))
@@ -529,7 +553,7 @@ def parse(tokenized, raw=None, count=0):
             if previous is not None:
                 previous_node = previous.val
                 if previous.val == TT_RPAREN:
-                    previous_node = result#parse(bracket_extract(tokenized[get_opening(tokenized[:i]):i]))
+                    previous_node = result
 
             if token.val == TT_PLUS:
                 result = BinOpNode(previous_node, next_node, "+", lambda a, b: a + b)

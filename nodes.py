@@ -50,3 +50,6 @@ class ValueNode(Node):
 
     def get_value(self):
         return self.value
+
+    def __repr__(self):
+        return f"{self.value}"
