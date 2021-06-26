@@ -3,7 +3,6 @@ import sys
 from vars import set_var, global_vars
 from nodes import *
 
-
 # Define tokens
 TT_PLUS = "PLUS"
 TT_MINUS = "MINUS"
@@ -13,6 +12,10 @@ TT_POWER = "POWER"
 TT_MODULO = "MOD"
 TT_GREATER = "GREATER THAN"
 TT_LESS = "LESS THAN"
+TT_IS_EQUAL = "IS_EQUAL"
+TT_NOT_EQUAL = "NOT_EQUAL"
+TT_GREATER_EQUAL = "GREATER_EQUAL"
+TT_LESS_EQUAL = "LESS_EQUAL"
 TT_RPAREN = "RPAREN"
 TT_LPAREN = "LPAREN"
 TT_BRACKET = "BRACKET"
@@ -26,11 +29,9 @@ TT_EQUALS = "EQUALS"
 TT_KEYWORD = "KW"
 TT_UNIT = "DUMMY"
 
-
 # Define pseudo-types
 PT_ASSIGNMENT = "ASSIGNING"
 PT_REFERENCE = "REFERNCING"
-
 
 # Define keywords
 KW_READONLY = "readonly"
@@ -46,14 +47,17 @@ KEYWORDS = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND
 # Define types
 types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
 
-
 # Define unary operators
 un_ops = [KW_NOT]
+
+# Define operator list
+op_chars = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!"]
 
 
 # Class Token
 class Token:
     """A class to define properties of tokens used by the lexer"""
+
     def __init__(self, tok_type, val):
         self.val = val
         self.type = tok_type
@@ -82,9 +86,9 @@ def prep_unary(tokenized):
             elif token.val == TT_RPAREN:
                 start_index = start_index_stack.pop()
             elif start_index >= 0:
-                thing = tokenized[start_index: i+1-insert_number]
-                del tokenized[start_index: i-insert_number]
-                i -= len(thing)-1
+                thing = tokenized[start_index: i + 1 - insert_number]
+                del tokenized[start_index: i - insert_number]
+                i -= len(thing) - 1
                 tokenized[start_index] = Token(TT_UNIT, thing)
                 insert_number += 1
                 start_index = -1
@@ -162,34 +166,57 @@ def read(text, ignore_exception=False, group_by=""):
             char = text[i]
 
             # Operator checks
-            if char == "+":
-                tokens.append(Token(None, TT_PLUS))
-            elif char == "-":
-                # If the "-" sign is at beginning (i = 0), it
-                # is a negative sign, not operator
-                if i == 0:
-                    multiplier = -1
+            if char in op_chars:
+                op = ""
+                while char in op_chars:
+                    op += char
+                    i += 1
+                    if i < len(text):
+                        char = text[i]
+                if op == "+":
+                    tokens.append(Token(None, TT_PLUS))
+                elif op == "-":
+                    # If the "-" sign is at beginning (i = 0), it
+                    # is a negative sign, not operator
+                    if i == 0:
+                        multiplier = -1
 
-                # If the latest is an operator or an opening
-                # bracket, it is a negative sign, not operator
-                elif latest.type is None or latest.val == TT_LPAREN or latest.type == TT_EQUALS:
-                    multiplier = -1
+                    # If the latest is an operator or an opening
+                    # bracket, it is a negative sign, not operator
+                    elif latest.type is None or latest.val == TT_LPAREN or latest.type == TT_EQUALS:
+                        multiplier = -1
 
-                # If you get here, it is an operator
-                else:
+                    # If you get here, it is an operator
+                    else:
+                        tokens.append(Token(None, TT_MINUS))
+                elif op == "--":
                     tokens.append(Token(None, TT_MINUS))
-            elif char == "*":
-                tokens.append(Token(None, TT_MUL))
-            elif char == "/":
-                tokens.append(Token(None, TT_DIV))
-            elif char == "^":
-                tokens.append(Token(None, TT_POWER))
-            elif char == "%":
-                tokens.append(Token(None, TT_MODULO))
-            elif char == ">":
-                tokens.append(Token(None, TT_GREATER))
-            elif char == "<":
-                tokens.append(Token(None, TT_LESS))
+                    multiplier = -1
+                elif op == "*":
+                    tokens.append(Token(None, TT_MUL))
+                elif op == "/":
+                    tokens.append(Token(None, TT_DIV))
+                elif op == "^":
+                    tokens.append(Token(None, TT_POWER))
+                elif op == "%":
+                    tokens.append(Token(None, TT_MODULO))
+                elif op == ">":
+                    tokens.append(Token(None, TT_GREATER))
+                elif op == "<":
+                    tokens.append(Token(None, TT_LESS))
+                elif op == "==":
+                    tokens.append(Token(None, TT_IS_EQUAL))
+                elif op == ">=":
+                    tokens.append(Token(None, TT_GREATER_EQUAL))
+                elif op == "<=":
+                    tokens.append(Token(None, TT_LESS_EQUAL))
+                elif op == "!=":
+                    tokens.append(Token(None, TT_NOT_EQUAL))
+                elif op == "=":
+                    tokens.append(Token(TT_EQUALS, TT_EQUALS))
+                else:
+                    print("SyntaxError: Invalid Syntax")
+                    sys.exit(1)
 
             # Bracket checks
             elif char == "(":
@@ -212,9 +239,6 @@ def read(text, ignore_exception=False, group_by=""):
                     j += 1
                 tokens.append(Token(TT_LIST, listed))
 
-            # Check for equals
-            elif char == "=":
-                tokens.append(Token(TT_EQUALS, TT_EQUALS))
             # Check for start of number: syntax like ".2" is
             # not supported as of 9/6/2021: only "0.2" will
             # be accepted
@@ -317,9 +341,9 @@ def analyse_tokens(tokenized):
     """A function to make sure tokenized syntax is correct"""
     for i in range(0, len(tokenized)):
         token = tokenized[i]
-        if i < len(tokenized)-1:
+        if i < len(tokenized) - 1:
             # Constructions like "8 100" are not allowed
-            if token.type == TT_INT and tokenized[i+1].type == TT_INT:
+            if token.type == TT_INT and tokenized[i + 1].type == TT_INT:
                 print("SyntaxError: Invalid Syntax")
                 sys.exit(1)
 
@@ -341,7 +365,7 @@ def assign_pseudo_types(tokenized):
                 # "bar" is referenced as it is at
                 # the end.
                 token.pseudo_type = PT_REFERENCE
-            elif tokenized[i+1].type == TT_EQUALS:
+            elif tokenized[i + 1].type == TT_EQUALS:
                 # In the construction "foo = bar",
                 # "foo" is assigned as it has an
                 # equals sign next to it.
@@ -408,7 +432,7 @@ def bracketize(tokenized, unary=False):
     output = tokenized[:]
     op_no = 0
     op_stack = []
-    i = len(tokenized)-1 if not unary else 0
+    i = len(tokenized) - 1 if not unary else 0
     inserted = 0
     loop_condition = i >= 0 if not unary else i < len(tokenized)
     while loop_condition:
@@ -420,10 +444,10 @@ def bracketize(tokenized, unary=False):
                 if not unary:
                     if token.val not in un_ops:
                         if tokenized[i + 1].type == TT_BRACKET:
-                            output.insert(get_closing(tokenized[i+1:]) + i + 2 + (op_no - 2), Token(TT_BRACKET,
-                                                                                                    TT_RPAREN))
+                            output.insert(get_closing(tokenized[i + 1:]) + i + 2 + (op_no - 2), Token(TT_BRACKET,
+                                                                                                      TT_RPAREN))
                         else:
-                            output.insert(i+2 + (op_no - 2), Token(TT_BRACKET, TT_RPAREN))
+                            output.insert(i + 2 + (op_no - 2), Token(TT_BRACKET, TT_RPAREN))
                         output.insert(0, Token(TT_BRACKET, TT_LPAREN))
                 else:
                     if token.val in un_ops:
@@ -436,7 +460,7 @@ def bracketize(tokenized, unary=False):
                 op_no = 0
         elif token.val == TT_LPAREN:
             if not unary:
-                op_no = op_stack.pop(len(op_stack)-1)
+                op_no = op_stack.pop(len(op_stack) - 1)
         elif token.type == "DUMMY":
             if not unary:
                 token.val = bracketize(token.val)[0]
@@ -457,12 +481,12 @@ def get_closing(expr, opening=TT_LPAREN, closing=TT_RPAREN):
             bracket_no -= 1
         i += 1
 
-    return i-1
+    return i - 1
 
 
 def get_opening(expr, opening=TT_LPAREN, closing=TT_RPAREN):
     bracket_no = 1
-    i = len(expr)-2
+    i = len(expr) - 2
     while i > 0 and bracket_no > 0:
         char = expr[i]
         if char.val == closing:
@@ -471,7 +495,7 @@ def get_opening(expr, opening=TT_LPAREN, closing=TT_RPAREN):
             bracket_no -= 1
         i -= 1
 
-    return i+1
+    return i + 1
 
 
 def get_closing_text(expr, opening="(", closing=")"):
@@ -485,7 +509,7 @@ def get_closing_text(expr, opening="(", closing=")"):
             bracket_no -= 1
         i += 1
 
-    return i-1
+    return i - 1
 
 
 def pre_parse(tokenized):
@@ -529,9 +553,9 @@ def parse(tokenized, raw=None, count=0):
         next = None
 
         if i > 0:
-            previous = tokenized[i-1]
-        if i < len(tokenized)-1:
-            next = tokenized[i+1]
+            previous = tokenized[i - 1]
+        if i < len(tokenized) - 1:
+            next = tokenized[i + 1]
 
         if token.type is None:
             if token.val not in un_ops:
@@ -549,7 +573,7 @@ def parse(tokenized, raw=None, count=0):
                 next_node = next.val
                 if next.val == TT_LPAREN:
                     next_node = parse(bracket_extract(tokenized[i + 1:]))
-                    i = get_closing(tokenized[i+1:]) + i + 1
+                    i = get_closing(tokenized[i + 1:]) + i + 1
             if previous is not None:
                 previous_node = previous.val
                 if previous.val == TT_RPAREN:
@@ -572,6 +596,14 @@ def parse(tokenized, raw=None, count=0):
                 result = BinOpNode(previous_node, next_node, ">", lambda a, b: a > b)
             elif token.val == TT_LESS:
                 result = BinOpNode(previous_node, next_node, "<", lambda a, b: a < b)
+            elif token.val == TT_IS_EQUAL:
+                result = BinOpNode(previous_node, next_node, "==", lambda a, b: a == b)
+            elif token.val == TT_LESS_EQUAL:
+                result = BinOpNode(previous_node, next_node, "<=", lambda a, b: a <= b)
+            elif token.val == TT_GREATER_EQUAL:
+                result = BinOpNode(previous_node, next_node, ">=", lambda a, b: a >= b)
+            elif token.val == TT_NOT_EQUAL:
+                result = BinOpNode(previous_node, next_node, "!=", lambda a, b: a != b)
 
             elif token.val == KW_AND:
                 result = BinOpNode(previous_node, next_node, "and", lambda a, b: a and b)
@@ -585,13 +617,12 @@ def parse(tokenized, raw=None, count=0):
             if previous is not None:
                 if previous.type == TT_VAR:
                     name = previous.val
-                    bracketized = prep_unary(raw[i+1-count:])
+                    bracketized = prep_unary(raw[i + 1 - count:])
                     bracketized, unused = bracketize(bracketized)
                     bracketized = unwrap_unary(bracketized)
                     value = calculate(parse(bracketized))
                     local_flag = readonly_flag
                     result = BinOpNode(name, value, "=", lambda a, b: set_var(a, b, local_flag))
-                    readonly_flag = False
                     return result
                 else:
                     print("SyntaxError: Invalid Syntax")
@@ -601,8 +632,8 @@ def parse(tokenized, raw=None, count=0):
                 sys.exit(1)
         elif token.type == TT_KEYWORD:
             if token.val == KW_READONLY:
-                if i < len(tokenized)-1:
-                    if tokenized[i+1].type == TT_VAR:
+                if i < len(tokenized) - 1:
+                    if tokenized[i + 1].type == TT_VAR:
                         readonly_flag = True
                     else:
                         print("SyntaxError: Invalid Syntax")
