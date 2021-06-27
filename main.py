@@ -9,6 +9,7 @@ if len(sys.argv) > 1:
 
 
 with open("pyscript/" + filename, newline="") as f:
+    levels_to_ifs = {}
     condition = False
     prev_indentation = -1
     branch_started = False
@@ -33,11 +34,15 @@ with open("pyscript/" + filename, newline="") as f:
         if len(tokenized) == 0:
             continue
 
-        parsed = parse(tokenized, raw, count)
+        if indentation not in levels_to_ifs.keys():
+            parsed = parse(tokenized, raw, count)
+        else:
+            parsed = parse(tokenized, raw, count, levels_to_ifs[indentation])
         if type(parsed) == bool:
             prev_indentation = indentation
             condition = parsed
             branch_started = True
+            levels_to_ifs[indentation] = condition
             continue
         calculate(parsed)
 

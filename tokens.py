@@ -43,8 +43,9 @@ KW_OR = "or"
 KW_XOR = "xor"
 KW_NOT = "not"
 KW_IF = "if"
+KW_ELSE = "else"
 KEYWORDS = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
-            KW_NOT: None, KW_IF: TT_BRANCH}
+            KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH}
 
 # Define types
 types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
@@ -538,7 +539,7 @@ def pre_parse(tokenized):
         i += 1
 
 
-def parse(tokenized, raw=None, count=0):
+def parse(tokenized, raw=None, count=0, level_condition=None):
     pre_parse(tokenized)
     if raw is None:
         raw = tokenized[:]
@@ -652,6 +653,11 @@ def parse(tokenized, raw=None, count=0):
                     sys.exit(1)
                 else:
                     return condition
+            if token.val == KW_ELSE:
+                if level_condition is None:
+                    print("SyntaxError: Invalid Syntax")
+                    sys.exit(1)
+                return not level_condition
 
         i += 1
 
