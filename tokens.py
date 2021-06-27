@@ -28,6 +28,7 @@ TT_VAR = "VAR"
 TT_EQUALS = "EQUALS"
 TT_KEYWORD = "KW"
 TT_UNIT = "DUMMY"
+TT_BRANCH = "BRANCH"
 
 # Define pseudo-types
 PT_ASSIGNMENT = "ASSIGNING"
@@ -41,8 +42,9 @@ KW_AND = "and"
 KW_OR = "or"
 KW_XOR = "xor"
 KW_NOT = "not"
+KW_IF = "if"
 KEYWORDS = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
-            KW_NOT: None}
+            KW_NOT: None, KW_IF: TT_BRANCH}
 
 # Define types
 types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
@@ -641,6 +643,15 @@ def parse(tokenized, raw=None, count=0):
                 else:
                     print("SyntaxError: Invalid Syntax")
                     sys.exit(1)
+        elif token.type == TT_BRANCH:
+            if token.val == KW_IF:
+                bool_expr = tokenized[i+1:]
+                condition = calculate(parse(bool_expr))
+                if type(condition) != bool:
+                    print("SyntaxError: Invalid Syntax")
+                    sys.exit(1)
+                else:
+                    return condition
 
         i += 1
 
