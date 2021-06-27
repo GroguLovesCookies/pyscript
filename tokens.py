@@ -1,5 +1,5 @@
 # Imports
-import sys
+from errors import *
 from vars import set_var, global_vars
 from nodes import *
 
@@ -218,8 +218,7 @@ def read(text, ignore_exception=False, group_by=""):
                 elif op == "=":
                     tokens.append(Token(TT_EQUALS, TT_EQUALS))
                 else:
-                    print("SyntaxError: Invalid Syntax")
-                    sys.exit(1)
+                    PyscriptSyntaxError("Invalid Syntax", True)
 
             # Bracket checks
             elif char == "(":
@@ -347,8 +346,7 @@ def analyse_tokens(tokenized):
         if i < len(tokenized) - 1:
             # Constructions like "8 100" are not allowed
             if token.type == TT_INT and tokenized[i + 1].type == TT_INT:
-                print("SyntaxError: Invalid Syntax")
-                sys.exit(1)
+                PyscriptSyntaxError("Invalid Syntax", True)
 
 
 def assign_pseudo_types(tokenized):
@@ -526,16 +524,14 @@ def pre_parse(tokenized):
                     tokenized[i] = Token(TT_INT, var.value)
                     var_exists = True
             if not var_exists:
-                print(f"NameError: variable '{token.val}' was referenced before assignment")
-                sys.exit(1)
+                PyscriptNameError(f"variable '{token.val}' was referenced before assignment", True)
         elif token.pseudo_type == PT_ASSIGNMENT:
             found_var = None
             for var in global_vars:
                 if token.val == var.name:
                     found_var = var
             if found_var is not None and found_var.readonly:
-                print(f"AssignmentError: Editing readonly variable '{found_var.name}'")
-                sys.exit(1)
+                PyscriptAssignmentError(f"AssignmentError: Editing readonly variable '{found_var.name}'", True)
         i += 1
 
 
@@ -563,12 +559,10 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
         if token.type is None:
             if token.val not in un_ops:
                 if next is None or previous is None:
-                    print("SyntaxError: Invalid Syntax")
-                    sys.exit(1)
+                    PyscriptSyntaxError("Invalid Syntax", True)
             else:
                 if next is None:
-                    print("SyntaxError: Invalid Syntax")
-                    sys.exit(1)
+                    PyscriptSyntaxError("Invalid Syntax", True)
 
             previous_node = None
             next_node = None
@@ -628,35 +622,29 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
                     result = BinOpNode(name, value, "=", lambda a, b: set_var(a, b, local_flag))
                     return result
                 else:
-                    print("SyntaxError: Invalid Syntax")
-                    sys.exit(1)
+                    PyscriptSyntaxError("Invalid Syntax", True)
             else:
-                print("SyntaxError: Invalid Syntax")
-                sys.exit(1)
+                PyscriptSyntaxError("Invalid Syntax", True)
         elif token.type == TT_KEYWORD:
             if token.val == KW_READONLY:
                 if i < len(tokenized) - 1:
                     if tokenized[i + 1].type == TT_VAR:
                         readonly_flag = True
                     else:
-                        print("SyntaxError: Invalid Syntax")
-                        sys.exit(1)
+                        PyscriptSyntaxError("Invalid Syntax", True)
                 else:
-                    print("SyntaxError: Invalid Syntax")
-                    sys.exit(1)
+                    PyscriptSyntaxError("Invalid Syntax", True)
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
                 bool_expr = tokenized[i+1:]
                 condition = calculate(parse(bool_expr))
                 if type(condition) != bool:
-                    print("SyntaxError: Invalid Syntax")
-                    sys.exit(1)
+                    PyscriptSyntaxError("Invalid Syntax", True)
                 else:
                     return condition
             if token.val == KW_ELSE:
                 if level_condition is None:
-                    print("SyntaxError: Invalid Syntax")
-                    sys.exit(1)
+                    PyscriptSyntaxError("Invalid Syntax", True)
                 return not level_condition
 
         i += 1

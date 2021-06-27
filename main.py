@@ -1,5 +1,6 @@
 from tokens import calculate, parse, read
 from vars import global_vars
+from errors import *
 import sys
 
 
@@ -20,8 +21,7 @@ with open("pyscript/" + filename, newline="") as f:
         if prev_indentation != -1:
             if prev_indentation != indentation - 1:
                 if branch_started:
-                    print("SyntaxError: Unexpected Indent")
-                    sys.exit(1)
+                    PyscriptSyntaxError("Invalid Syntax", True)
                 else:
                     prev_indentation = -1
                     condition = True
