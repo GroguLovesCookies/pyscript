@@ -36,4 +36,13 @@ AssignmentError: Editing readonly variable 'foo'
 #### Types
 1. Lists
 1. Strings
+1. Booleans
 1. Integers and Floats<br />
+
+**Strings** <br />
+A *string* is anything that stores a text value. It can be defined using: <br/>
+```
+my_string = "Hello world!"
+```
+Note that (as of 27/6/2021) strings can only use double quotes.
+
