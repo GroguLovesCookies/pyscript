@@ -89,8 +89,11 @@ def prep_unary(tokenized):
             elif token.val == TT_RPAREN:
                 start_index = start_index_stack.pop()
             elif start_index >= 0:
-                thing = tokenized[start_index: i + 1 - insert_number]
-                del tokenized[start_index: i - insert_number]
+                change = insert_number
+                if insert_number > 0:
+                    change = insert_number-1
+                thing = tokenized[start_index: i + 1 - change]
+                del tokenized[start_index: i - change]
                 i -= len(thing) - 1
                 tokenized[start_index] = Token(TT_UNIT, thing)
                 insert_number += 1

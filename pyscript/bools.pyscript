@@ -1,1 +1,8 @@
 a = not not True
+b = True and True
+c = True and False
+d = True or False
+e = False or False
+f = True xor False
+g = True xor True
+h = not not True xor not False

@@ -1,4 +1,4 @@
-readonly x = -1
+readonly x = 6
 if x > 0:
     y = True
 else:
