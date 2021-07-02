@@ -703,8 +703,10 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
                     PyscriptSyntaxError("Invalid Syntax", True)
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
-                bool_expr = tokenized[i+1:]
-                condition = calculate(parse(bool_expr))
+                bracketized = prep_unary(raw[i + 1 - count:])
+                bracketized, unused = bracketize(bracketized)
+                bracketized = unwrap_unary(bracketized)
+                condition = calculate(parse(bracketized))
                 if type(condition) != bool:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 else:
@@ -713,9 +715,7 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
                 if level_condition is None:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 return not level_condition
-
         i += 1
-
     return result
 
 

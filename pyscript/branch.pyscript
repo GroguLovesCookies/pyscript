@@ -1,5 +1,5 @@
-readonly x = 6
-if x > 0:
+readonly x = -1
+if x+1 > 0:
     y = True
 else:
     y = False
