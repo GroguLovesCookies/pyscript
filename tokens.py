@@ -2,6 +2,7 @@
 from errors import *
 from vars import set_var, global_vars, index_set_var
 from nodes import *
+from range import range_from_to
 
 # Define tokens
 TT_PLUS = "PLUS"
@@ -10,8 +11,10 @@ TT_MUL = "MUL"
 TT_DIV = "DIV"
 TT_POWER = "POWER"
 TT_MODULO = "MOD"
-TT_GREATER = "GREATER THAN"
-TT_LESS = "LESS THAN"
+TT_RANGE_TO = "RANGE_TO"
+TT_RANGE_THROUGH = "RANGE_THROUGH"
+TT_GREATER = "GREATER_THAN"
+TT_LESS = "LESS_THAN"
 TT_IS_EQUAL = "IS_EQUAL"
 TT_NOT_EQUAL = "NOT_EQUAL"
 TT_GREATER_EQUAL = "GREATER_EQUAL"
@@ -57,7 +60,7 @@ types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
 un_ops = [KW_NOT]
 
 # Define operator list
-op_chars = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!"]
+op_chars = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!", ":"]
 
 # Define indexed versions of un-indexed pseudo-types
 indexed = {PT_ASSIGNMENT: PT_INDEX_ASSIGNMENT, PT_REFERENCE: PT_INDEX_REFERENCE,
@@ -229,6 +232,10 @@ def read(text, ignore_exception=False, group_by=""):
                     tokens.append(Token(None, TT_LESS_EQUAL))
                 elif op == "!=":
                     tokens.append(Token(None, TT_NOT_EQUAL))
+                elif op == ":":
+                    tokens.append(Token(None, TT_RANGE_TO))
+                elif op == "::":
+                    tokens.append(Token(None, TT_RANGE_THROUGH))
                 elif op == "=":
                     tokens.append(Token(TT_EQUALS, TT_EQUALS))
                 else:
@@ -646,6 +653,11 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
                 result = BinOpNode(previous_node, next_node, "^", lambda a, b: a ** b)
             elif token.val == TT_MODULO:
                 result = BinOpNode(previous_node, next_node, "%", lambda a, b: a % b)
+
+            elif token.val == TT_RANGE_TO:
+                result = BinOpNode(previous_node, next_node, ":", lambda a, b: range_from_to(a, b))
+            elif token.val == TT_RANGE_THROUGH:
+                result = BinOpNode(previous_node, next_node, "::", lambda a, b: range_from_to(a, b+1))
 
             elif token.val == TT_GREATER:
                 result = BinOpNode(previous_node, next_node, ">", lambda a, b: a > b)
