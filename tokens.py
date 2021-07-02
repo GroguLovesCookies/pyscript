@@ -1,6 +1,6 @@
 # Imports
 from errors import *
-from vars import set_var, global_vars
+from vars import set_var, global_vars, index_set_var
 from nodes import *
 
 # Define tokens
@@ -29,10 +29,13 @@ TT_EQUALS = "EQUALS"
 TT_KEYWORD = "KW"
 TT_UNIT = "DUMMY"
 TT_BRANCH = "BRANCH"
+TT_INDEX = "INDEX"
 
 # Define pseudo-types
 PT_ASSIGNMENT = "ASSIGNING"
 PT_REFERENCE = "REFERNCING"
+PT_INDEX_ASSIGNMENT = "INDEX_ASSIGN"
+PT_INDEX_REFERENCE = "INDEX_REFERENCE"
 
 # Define keywords
 KW_READONLY = "readonly"
@@ -56,6 +59,10 @@ un_ops = [KW_NOT]
 # Define operator list
 op_chars = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!"]
 
+# Define indexed versions of un-indexed pseudo-types
+indexed = {PT_ASSIGNMENT: PT_INDEX_ASSIGNMENT, PT_REFERENCE: PT_INDEX_REFERENCE,
+           PT_INDEX_ASSIGNMENT: PT_INDEX_ASSIGNMENT, PT_INDEX_REFERENCE: PT_INDEX_REFERENCE}
+
 
 # Class Token
 class Token:
@@ -65,6 +72,7 @@ class Token:
         self.val = val
         self.type = tok_type
         self.pseudo_type = None
+        self.extra_params = []
 
     def __repr__(self):
         if self.type is None:
@@ -166,6 +174,9 @@ def read(text, ignore_exception=False, group_by=""):
                 tokens, count = bracketize(tokens)
                 tokens = unwrap_unary(tokens)
                 assign_pseudo_types(tokens)
+                assign_pseudo_types(raw)
+                tokens = remove_index_tokens(tokens)
+                raw = remove_index_tokens(raw)
                 return tokens, raw, count
 
             # Analyse character
@@ -236,13 +247,18 @@ def read(text, ignore_exception=False, group_by=""):
 
             # List checks
             elif char == "[":
-                listed = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True, group_by=",")
-                i = get_closing_text(text[i:], "[", "]") + i
-                j = 0
-                while j < len(listed):
-                    listed[j] = calculate(parse(listed[j]))
-                    j += 1
-                tokens.append(Token(TT_LIST, listed))
+                if latest.type == TT_VAR:
+                    index = int(text_extract(text[i:], opening="[", closing="]"))
+                    tokens.append(Token(TT_INDEX, index))
+                    i = get_closing_text(text[i:], opening="[", closing="]") + i
+                else:
+                    listed = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True, group_by=",")
+                    i = get_closing_text(text[i:], "[", "]") + i
+                    j = 0
+                    while j < len(listed):
+                        listed[j] = calculate(parse(listed[j]))
+                        j += 1
+                    tokens.append(Token(TT_LIST, listed))
 
             # Check for start of number: syntax like ".2" is
             # not supported as of 9/6/2021: only "0.2" will
@@ -362,24 +378,46 @@ def assign_pseudo_types(tokenized):
     while i < len(tokenized):
         token = tokenized[i]
         if token.type == TT_VAR:
-            # If it is a variable, it can be either
-            # referenced or assigned.
-            if i == len(tokenized) - 1:
-                # In the construction "foo = bar",
-                # "bar" is referenced as it is at
-                # the end.
-                token.pseudo_type = PT_REFERENCE
-            elif tokenized[i + 1].type == TT_EQUALS:
-                # In the construction "foo = bar",
-                # "foo" is assigned as it has an
-                # equals sign next to it.
-                token.pseudo_type = PT_ASSIGNMENT
-            else:
-                # In the construction "foobar = foo + bar",
-                # "foo" is referenced as it is not succeeded
-                # by an equals sign.
-                token.pseudo_type = PT_REFERENCE
+            pseudo_type, extra_args = check_variable(tokenized, i)
+            token.pseudo_type = pseudo_type
+            token.extra_params = extra_args
         i += 1
+
+
+def check_variable(tokenized, i):
+    # If it is a variable, it can be either
+    # referenced or assigned.
+    if i == len(tokenized) - 1:
+        # In the construction "foo = bar",
+        # "bar" is referenced as it is at
+        # the end.
+        return PT_REFERENCE, []
+    elif tokenized[i+1].type == TT_EQUALS:
+        # In the construction "foo = bar",
+        # "foo" is assigned as it has an
+        # equals sign next to it.
+        return PT_ASSIGNMENT, []
+    elif tokenized[i+1].type == TT_INDEX:
+        pseudo_type, extra_parameters = check_variable(tokenized, i+1)
+        return indexed[pseudo_type], [tokenized[i+1].val, *extra_parameters]
+    else:
+        # In the construction "foobar = foo + bar",
+        # "foo" is referenced as it is not succeeded
+        # by an equals sign.
+        return PT_REFERENCE, []
+
+
+def remove_index_tokens(tokenized):
+    output = tokenized[:]
+    i = 0
+    deletion_number = 0
+    while i < len(tokenized):
+        token = tokenized[i]
+        if token.type == TT_INDEX:
+            del output[i-deletion_number]
+            deletion_number += 1
+        i += 1
+    return output
 
 
 def text_extract(expr, opening="(", closing=")"):
@@ -535,6 +573,23 @@ def pre_parse(tokenized):
                     found_var = var
             if found_var is not None and found_var.readonly:
                 PyscriptAssignmentError(f"AssignmentError: Editing readonly variable '{found_var.name}'", True)
+        elif token.pseudo_type == PT_INDEX_REFERENCE:
+            var_exists = False
+            for var in global_vars:
+                element = 0
+                if token.val == var.name:
+                    try:
+                        element = var.value[token.extra_params[0]]
+                    except IndexError:
+                        PyscriptSyntaxError("Invalid Syntax", True)
+                    for index in token.extra_params:
+                        element = var.value[index]
+                    tokenized[i] = Token(TT_INT, element)
+
+                    var_exists = True
+            if not var_exists:
+                PyscriptNameError(f"variable '{token.val}' was referenced before assignment", True)
+
         i += 1
 
 
@@ -616,14 +671,23 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
         elif token.type == TT_EQUALS:
             if previous is not None:
                 if previous.type == TT_VAR:
-                    name = previous.val
-                    bracketized = prep_unary(raw[i + 1 - count:])
-                    bracketized, unused = bracketize(bracketized)
-                    bracketized = unwrap_unary(bracketized)
-                    value = calculate(parse(bracketized))
-                    local_flag = readonly_flag
-                    result = BinOpNode(name, value, "=", lambda a, b: set_var(a, b, local_flag))
-                    return result
+                    if previous.pseudo_type == PT_ASSIGNMENT:
+                        name = previous.val
+                        bracketized = prep_unary(raw[i + 1 - count:])
+                        bracketized, unused = bracketize(bracketized)
+                        bracketized = unwrap_unary(bracketized)
+                        value = calculate(parse(bracketized))
+                        local_flag = readonly_flag
+                        result = BinOpNode(name, value, "=", lambda a, b: set_var(a, b, local_flag))
+                        return result
+                    elif previous.pseudo_type == PT_INDEX_ASSIGNMENT:
+                        name = previous.val
+                        bracketized = prep_unary(raw[i + 1 - count:])
+                        bracketized, unused = bracketize(bracketized)
+                        bracketized = unwrap_unary(bracketized)
+                        value = calculate(parse(bracketized))
+                        result = BinOpNode(name, value, "=", lambda a, b: index_set_var(a, b, previous.extra_params))
+                        return result
                 else:
                     PyscriptSyntaxError("Invalid Syntax", True)
             else:

@@ -7,7 +7,7 @@ class Variable:
         self.name = name
         self.readonly = readonly
 
-    def __str__(self):
+    def __repr__(self):
         value = self.value
         if type(self.value) == str:
             value = f"\"{self.value}\""
@@ -19,7 +19,7 @@ class Variable:
 
 def create_var(name, value, readonly=False):
     global_vars.append(Variable(name, value, readonly))
-    return global_vars[-1]
+    return global_vars[-1].value
 
 
 def set_var(name, value, readonly=False):
@@ -28,3 +28,20 @@ def set_var(name, value, readonly=False):
             var.value = value
             return var.value
     return create_var(name, value, readonly)
+
+
+def index_set_var(name, value, indices):
+    for var in global_vars:
+        if var.name == name:
+            element_stack = []
+            i = 0
+            element_stack.append(var.value)
+            for index in indices:
+                i += 1
+                if i < len(indices)-1:
+                    element_stack.append(element_stack[-1][index])
+            i = 0
+            for index in reversed(indices):
+                element_stack[-1-i][index] = value
+                i += 1
+            print(element_stack)
