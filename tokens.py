@@ -151,6 +151,16 @@ def split_list(text, character=" ", strip=False):
     return splitted
 
 
+def get_list(text, i):
+    listed = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True, group_by=",")
+    i = get_closing_text(text[i:], "[", "]") + i
+    j = 0
+    while j < len(listed):
+        listed[j] = calculate(parse(listed[j]))
+        j += 1
+    return Token(TT_LIST, listed)
+
+
 # Reading function
 def read(text, ignore_exception=False, group_by=""):
     """A function to tokenize input text"""
@@ -254,18 +264,17 @@ def read(text, ignore_exception=False, group_by=""):
 
             # List checks
             elif char == "[":
-                if latest.type == TT_VAR:
-                    index = int(text_extract(text[i:], opening="[", closing="]"))
-                    tokens.append(Token(TT_INDEX, index))
-                    i = get_closing_text(text[i:], opening="[", closing="]") + i
+                if latest is not None:
+                    if latest.type == TT_VAR or latest.type == TT_INDEX:
+                        index = calculate(parse(*read(text_extract(text[i:], opening="[", closing="]"))))
+                        tokens.append(Token(TT_INDEX, index))
+                        i += get_closing_text(text[i:], opening="[", closing="]")
+                    else:
+                        tokens.append(get_list(text, i))
+                        i += get_closing_text(text, opening="[", closing="[")
                 else:
-                    listed = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True, group_by=",")
-                    i = get_closing_text(text[i:], "[", "]") + i
-                    j = 0
-                    while j < len(listed):
-                        listed[j] = calculate(parse(listed[j]))
-                        j += 1
-                    tokens.append(Token(TT_LIST, listed))
+                    tokens.append(get_list(text, i))
+                    i += get_closing_text(text, opening="[", closing="]")
 
             # Check for start of number: syntax like ".2" is
             # not supported as of 9/6/2021: only "0.2" will
@@ -583,14 +592,34 @@ def pre_parse(tokenized):
         elif token.pseudo_type == PT_INDEX_REFERENCE:
             var_exists = False
             for var in global_vars:
-                element = 0
                 if token.val == var.name:
-                    try:
+                    element = None
+                    if type(token.extra_params[0]) == int:
+                        if token.extra_params[0] > len(var.value):
+                            PyscriptIndexError(f"Index {token.extra_params[0]} is out of range", True)
                         element = var.value[token.extra_params[0]]
-                    except IndexError:
-                        PyscriptSyntaxError("Invalid Syntax", True)
-                    for index in token.extra_params:
-                        element = var.value[index]
+                    elif type(token.extra_params[0]) == list:
+                        temp = var.value
+                        element = []
+                        for j in token.extra_params[0]:
+                            if j > len(temp)-1:
+                                PyscriptIndexError(f"Index {j} is out of range", True)
+                            else:
+                                element.append(temp[j])
+                    if len(token.extra_params) > 1:
+                        for index in token.extra_params[1:]:
+                            if type(element) != list:
+                                PyscriptSyntaxError("Invalid Syntax", True)
+                            if type(index) == int:
+                                element = element[index]
+                            elif type(index) == list:
+                                temp = element.value
+                                element.value = []
+                                for i in index:
+                                    if i > len(temp):
+                                        PyscriptIndexError(f"Index {token.extra_params[0]} is out of range", True)
+                                    else:
+                                        element.value.append(temp[i])
                     tokenized[i] = Token(TT_INT, element)
 
                     var_exists = True

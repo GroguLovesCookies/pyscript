@@ -44,4 +44,3 @@ def index_set_var(name, value, indices):
             for index in reversed(indices):
                 element_stack[-1-i][index] = value
                 i += 1
-            print(element_stack)

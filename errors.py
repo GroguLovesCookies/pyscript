@@ -26,3 +26,8 @@ class PyscriptNameError(Error):
 class PyscriptAssignmentError(Error):
     def __init__(self, msg, auto_throw=False):
         Error.__init__(self, "AssignmentError", msg, auto_throw)
+
+
+class PyscriptIndexError(Error):
+    def __init__(self, msg, auto_throw=False):
+        Error.__init__(self, "IndexError", msg, auto_throw)
