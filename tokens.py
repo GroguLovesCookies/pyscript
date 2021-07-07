@@ -129,15 +129,22 @@ def unwrap_unary(tokenized):
 
 def split_list(text, character=" ", strip=False):
     splitted = []
-    ignore = False
+    quote_ignore = False
+    bracket_ignore = False
     current = ""
 
     for char in text:
         if char == "\"":
-            ignore = not ignore
+            quote_ignore = not quote_ignore
+            current += char
+        elif char == "[":
+            bracket_ignore = True
+            current += char
+        elif char == "]":
+            bracket_ignore = False
             current += char
         elif char == character:
-            if not ignore:
+            if not quote_ignore and not bracket_ignore:
                 splitted.append(current if not strip else current.strip())
                 current = ""
             else:
