@@ -33,6 +33,7 @@ TT_KEYWORD = "KW"
 TT_UNIT = "DUMMY"
 TT_BRANCH = "BRANCH"
 TT_INDEX = "INDEX"
+TT_WHILE = "WHILE"
 
 # Define pseudo-types
 PT_ASSIGNMENT = "ASSIGNING"
@@ -50,8 +51,9 @@ KW_XOR = "xor"
 KW_NOT = "not"
 KW_IF = "if"
 KW_ELSE = "else"
+KW_WHILE = "while"
 KEYWORDS = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
-            KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH}
+            KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE}
 
 # Define types
 types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
@@ -210,6 +212,8 @@ def read(text, ignore_exception=False, group_by=""):
                     i += 1
                     if i < len(text):
                         char = text[i]
+                    else:
+                        break
                 if op == "+":
                     tokens.append(Token(None, TT_PLUS))
                 elif op == "-":
@@ -250,7 +254,8 @@ def read(text, ignore_exception=False, group_by=""):
                 elif op == "!=":
                     tokens.append(Token(None, TT_NOT_EQUAL))
                 elif op == ":":
-                    tokens.append(Token(None, TT_RANGE_TO))
+                    if i < len(text):
+                        tokens.append(Token(None, TT_RANGE_TO))
                 elif op == "::":
                     tokens.append(Token(None, TT_RANGE_THROUGH))
                 elif op == "=":
@@ -758,11 +763,20 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
                 if type(condition) != bool:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 else:
-                    return condition
+                    return condition, TT_BRANCH
             if token.val == KW_ELSE:
                 if level_condition is None:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 return not level_condition
+        elif token.type == TT_WHILE:
+            bracketized = prep_unary(raw[i + 1 - count:])
+            bracketized, unused = bracketize(bracketized)
+            bracketized = unwrap_unary(bracketized)
+            condition = calculate(parse(bracketized))
+            if type(condition) != bool:
+                PyscriptSyntaxError("Invalid Syntax", True)
+            else:
+                return condition, TT_WHILE
         i += 1
     return result
 
