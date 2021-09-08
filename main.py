@@ -4,88 +4,77 @@ from errors import *
 import sys
 
 
-filename = "print.pyscript"
+def find_chunk(line_i, file_lines):
+    line_num = line_i
+    chunk = ""
+    prev_indentation_value = -1
+    first_indentation_value = -1
+    while line_num < len(file_lines):
+        current_line = file_lines[line_num]
+        expanded_line = current_line.expandtabs().strip("\n")
+        indentation_value = (len(expanded_line) - len(expanded_line.strip(" ")))//4
+        if prev_indentation_value == -1:
+            first_indentation_value = indentation_value
+        else:
+            if indentation_value == first_indentation_value:
+                return chunk
+            else:
+                if indentation_value-prev_indentation_value >= 0:
+                    chunk += current_line
+                elif indentation_value-prev_indentation_value < 0:
+                    return chunk
+        line_num += 1
+        prev_indentation_value = indentation_value
+    return chunk + "\n"
+
+
+def run(lines):
+    i = 0
+    chunk_a = chunk_b = ""
+    line_a = line_b = 0
+    while i < len(lines):
+        line = lines[i]
+        tokenized, raw, count = read(line.strip("\n").strip())
+
+        if len(tokenized) == 0:
+            i += 1
+            continue
+        parsed = parse(tokenized, raw, count)
+        if type(parsed) == tuple:
+            if type(parsed[0]) == bool:
+                if parsed[1] == "BRANCH":
+                    chunk_a = find_chunk(i, lines)
+                    line_a = i
+                    i += len(chunk_a.split("\n"))
+                    line = lines[i]
+                    tokenized, raw, count = read(line.strip("\n").strip())
+                    if tokenized[0].val == "else":
+                        line_b = i
+                        chunk_b = find_chunk(i, lines)
+                    else:
+                        line_b = line_a
+                    if parsed[0]:
+                        run([chunk_a])
+                    else:
+                        run([chunk_b])
+                    chunk_to_use = chunk_b if line_b != line_a else chunk_a
+                    i += len(chunk_to_use.split("\n")) + 1
+                    continue
+
+        calculate(parsed)
+        i += 1
+
+
+filename = "branch.pyscript"
 if len(sys.argv) > 1:
     filename = sys.argv[1]
 
 
 with open("pyscript/" + filename, "r+") as f:
-    levels_to_ifs = {}
-    condition = False
-    prev_indentation = -1
-    loop_lines = []
-    indent_started = False
-    loop_condition = False
-    indentation_type = ""
-    lines = []
-    for line in f:
-        lines.append(line)
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        tokenized, raw, count = read(line.strip("\n").strip())
-        expanded = line.expandtabs().strip("\n")
-        indentation = (len(expanded) - len(expanded.strip(" ")))//4
-        if prev_indentation != -1:
-            if prev_indentation != indentation - 1:
-                if indent_started:
-                    PyscriptSyntaxError("Invalid Syntax", True)
-                else:
-                    if indentation_type == "BRANCH":
-                        prev_indentation = -1
-                        condition = True
-                    elif indentation_type == "WHILE":
-                        if loop_condition:
-                            prev_indentation = -1
-                            i = loop_lines[-1]
-                            line = lines[i]
-                            tokenized, raw, count = read(line.strip("\n").strip())
-                            expanded = line.expandtabs().strip("\n")
-                            indentation = (len(expanded) - len(expanded.strip(" ")))//4
-            indent_started = False
-            if tokenized[0].type == "BRANCH":
-                prev_indentation = indentation
-            if indentation_type == "IF":
-                if not condition:
-                    continue
-            elif indentation_type == "WHILE":
-                if not loop_condition:
-                    i += 1
-                    continue
-
-        if len(tokenized) == 0:
-            i += 1
-            continue
-
-        if indentation not in levels_to_ifs.keys():
-            parsed = parse(tokenized, raw, count)
-        else:
-            parsed = parse(tokenized, raw, count, levels_to_ifs[indentation])
-        if type(parsed) == tuple:
-            if type(parsed[0]) == bool:
-                if parsed[1] == "BRANCH":
-                    prev_indentation = indentation
-                    condition = parsed
-                    indent_started = True
-                    levels_to_ifs[indentation] = condition
-                    indentation_type = "IF"
-                if parsed[1] == "WHILE":
-                    prev_indentation = indentation
-                    loop_condition = parsed[0]
-                    if loop_condition:
-                        if i not in loop_lines:
-                            loop_lines.append(i)
-                    else:
-                        if i in loop_lines:
-                            loop_lines.remove(i)
-                            loop_condition = False
-                    indent_started = True
-                    indentation_type = "WHILE"
-
-                i += 1
-                continue
-        calculate(parsed)
-        i += 1
+    program = []
+    for l in f:
+        program.append(l)
+    run(program)
 
 for var in global_vars:
     print(var)
