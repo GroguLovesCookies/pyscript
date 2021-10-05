@@ -6,7 +6,7 @@ import sys
 
 def find_chunk(line_i, file_lines):
     line_num = line_i
-    chunk = ""
+    chunk = []
     prev_indentation_value = -1
     first_indentation_value = -1
     while line_num < len(file_lines):
@@ -20,12 +20,14 @@ def find_chunk(line_i, file_lines):
                 return chunk
             else:
                 if indentation_value-prev_indentation_value >= 0:
-                    chunk += current_line
-                elif indentation_value-prev_indentation_value < 0:
+                    chunk.append(current_line)
+                elif indentation_value-prev_indentation_value < 0 and indentation_value <= first_indentation_value:
                     return chunk
+                else:
+                    chunk.append(current_line)
         line_num += 1
         prev_indentation_value = indentation_value
-    return chunk + "\n"
+    return chunk
 
 
 def run(lines):
@@ -45,7 +47,7 @@ def run(lines):
                 if parsed[1] == "BRANCH":
                     chunk_a = find_chunk(i, lines)
                     line_a = i
-                    i += len(chunk_a.split("\n"))
+                    i += len(chunk_a)
                     line = lines[i]
                     tokenized, raw, count = read(line.strip("\n").strip())
                     if tokenized[0].val == "else":
@@ -53,12 +55,22 @@ def run(lines):
                         chunk_b = find_chunk(i, lines)
                     else:
                         line_b = line_a
+                        chunk_b = ""
                     if parsed[0]:
-                        run([chunk_a])
+                        run(chunk_a)
                     else:
-                        run([chunk_b])
+                        run(chunk_b)
                     chunk_to_use = chunk_b if line_b != line_a else chunk_a
-                    i += len(chunk_to_use.split("\n")) + 1
+                    i += len(chunk_to_use) + 1
+                    continue
+                elif parsed[1] == "WHILE":
+                    loop_chunk = find_chunk(i, lines)
+                    line_a = i
+                    if parsed[0]:
+                        run(loop_chunk)
+                        i = line_a
+                    else:
+                        i += len(loop_chunk) + 1
                     continue
 
         calculate(parsed)
