@@ -1,0 +1,8 @@
+label Add:
+    i = 2+2
+
+label Sub:
+    k = 2-2
+
+label Mul:
+    k = 2*2

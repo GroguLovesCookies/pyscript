@@ -1,5 +1,6 @@
 from tokens import calculate, parse, read
 from vars import global_vars
+from labels import *
 from errors import *
 import sys
 
@@ -86,7 +87,13 @@ def run(lines, looping=False):
                     if not looping:
                         PyscriptSyntaxError("'break' statement outside of loop", True)
                     return FLAG_TERMINATE
-
+        elif type(parsed) == Label:
+            parsed.line = i
+            parsed.chunk = find_chunk(i, lines)
+            # print(Label.all_labels)
+            i += len(parsed.chunk) + 1
+            run(parsed.chunk)
+            continue
         calculate(parsed)
         i += 1
 

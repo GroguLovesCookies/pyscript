@@ -1,6 +1,7 @@
 # Imports
 from errors import *
 from vars import set_var, global_vars, index_set_var
+from labels import *
 from nodes import *
 from range import range_from_to
 
@@ -54,9 +55,10 @@ KW_ELSE = "else"
 KW_WHILE = "while"
 KW_CONTINUE = "continue"
 KW_BREAK = "break"
+KW_LABEL = "label"
 KEYWORDS = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
             KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
-            KW_BREAK: TT_KEYWORD}
+            KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD}
 
 # Define types
 types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
@@ -589,6 +591,8 @@ def pre_parse(tokenized):
     i = 0
     while i < len(tokenized):
         token = tokenized[i]
+        if token.val == KW_LABEL:
+            return
         if token.pseudo_type == PT_REFERENCE:
             var_exists = False
             for var in global_vars:
@@ -658,26 +662,26 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
     while i < len(tokenized):
         token = tokenized[i]
         previous = None
-        next = None
+        next_token = None
 
         if i > 0:
             previous = tokenized[i - 1]
         if i < len(tokenized) - 1:
-            next = tokenized[i + 1]
+            next_token = tokenized[i + 1]
 
         if token.type is None:
             if token.val not in un_ops:
-                if next is None or previous is None:
+                if next_token is None or previous is None:
                     PyscriptSyntaxError("Invalid Syntax", True)
             else:
-                if next is None:
+                if next_token is None:
                     PyscriptSyntaxError("Invalid Syntax", True)
 
             previous_node = None
             next_node = None
-            if next is not None:
-                next_node = next.val
-                if next.val == TT_LPAREN:
+            if next_token is not None:
+                next_node = next_token.val
+                if next_token.val == TT_LPAREN:
                     next_node = parse(bracket_extract(tokenized[i + 1:]))
                     i = get_closing(tokenized[i + 1:]) + i + 1
             if previous is not None:
@@ -761,6 +765,12 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
                 return None, KW_CONTINUE
             if token.val == KW_BREAK:
                 return None, KW_BREAK
+            if token.val == KW_LABEL:
+                if next_token is None:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                if next_token.type == TT_VAR:
+                    return Label(next_token.val, 0, "")
+
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
                 bracketized = prep_unary(raw[i + 1 - count:])
