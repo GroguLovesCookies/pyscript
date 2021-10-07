@@ -34,7 +34,7 @@ def find_chunk(line_i, file_lines):
     return chunk
 
 
-def run(lines, looping=False):
+def run(lines, looping=False, original=False):
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -59,21 +59,38 @@ def run(lines, looping=False):
                         line_b = line_a
                         chunk_b = ""
                     if parsed[0]:
-                        if run(chunk_a, looping) == FLAG_TERMINATE:
+                        val = run(chunk_a, looping)
+                        if val == FLAG_TERMINATE:
                             return FLAG_TERMINATE
+                        elif type(val) == tuple:
+                            if not original:
+                                return val
+                            i = val[1]
+                            continue
                     else:
-                        if run(chunk_b, looping) == FLAG_TERMINATE:
+                        val = run(chunk_b, looping)
+                        if val == FLAG_TERMINATE:
                             return FLAG_TERMINATE
+                        elif type(val) == tuple:
+                            if not original:
+                                return val
+                            i = val[1]
+                            continue
                     chunk_to_use = chunk_b if line_b != line_a else chunk_a
                     i += len(chunk_to_use) - (len(chunk_to_use)-1)
                     continue
                 elif parsed[1] == "WHILE":
                     loop_chunk = find_chunk(i, lines)
+                    if val == FLAG_TERMINATE:
+                        return FLAG_TERMINATE
+                    elif type(val) == list:
+                        if not original:
+                            return val
+                        i = val[1]
+                        continue
                     line_a = i
                     if parsed[0]:
-                        if run(loop_chunk, True) == FLAG_TERMINATE:
-                            i += len(loop_chunk) + 1
-                            continue
+                        val = run(loop_chunk, True)
                         i = line_a
                     else:
                         i += len(loop_chunk) + 1
@@ -87,10 +104,13 @@ def run(lines, looping=False):
                     if not looping:
                         PyscriptSyntaxError("'break' statement outside of loop", True)
                     return FLAG_TERMINATE
+                if parsed[1] == "jump":
+                    if not original:
+                        return "jump", parsed[2].line+1
         elif type(parsed) == Label:
             parsed.line = i
             parsed.chunk = find_chunk(i, lines)
-            # print(Label.all_labels)
+            # print(Label.all_labels) # Debug
             i += len(parsed.chunk) + 1
             run(parsed.chunk)
             continue
@@ -107,7 +127,7 @@ with open("pyscript/" + filename, "r+") as f:
     program = []
     for l in f:
         program.append(l)
-    run(program)
+    run(program, original=True)
 
 for var in global_vars:
     print(var)

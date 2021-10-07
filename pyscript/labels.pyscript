@@ -1,8 +1,17 @@
+i = 0
+k = 2
+
 label Add:
-    i = 2+2
+    i = i+2
 
 label Sub:
-    k = 2-2
+    k = k-2
 
 label Mul:
-    k = 2*2
+    k = k*2
+
+if i <= 2:
+    jump Add
+
+if k >= 0:
+    jump Sub
