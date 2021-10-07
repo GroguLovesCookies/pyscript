@@ -601,7 +601,7 @@ def pre_parse(tokenized):
                 if token.val == var.name:
                     found_var = var
             if found_var is not None and found_var.readonly:
-                PyscriptAssignmentError(f"AssignmentError: Editing readonly variable '{found_var.name}'", True)
+                PyscriptAssignmentError(f"Editing readonly variable '{found_var.name}'", True)
         elif token.pseudo_type == PT_INDEX_REFERENCE:
             var_exists = False
             for var in global_vars:
