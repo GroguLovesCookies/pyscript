@@ -87,3 +87,7 @@ XOR stands for this or that, but not both.<br/>
 |-------|-------|
 | False | True  |
 | True  | False |
+
+
+**Integers and Floats**
+An integer is a whole number. It can only contain numbers. Floats can contain a decimal point though. In case there is more than one decimal point, the decimal points after the first are ignored.
