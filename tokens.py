@@ -53,8 +53,10 @@ KW_IF = "if"
 KW_ELSE = "else"
 KW_WHILE = "while"
 KW_CONTINUE = "continue"
+KW_BREAK = "break"
 KEYWORDS = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
-            KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD}
+            KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
+            KW_BREAK: TT_KEYWORD}
 
 # Define types
 types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
@@ -757,6 +759,8 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
                     PyscriptSyntaxError("Invalid Syntax", True)
             if token.val == KW_CONTINUE:
                 return None, KW_CONTINUE
+            if token.val == KW_BREAK:
+                return None, KW_BREAK
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
                 bracketized = prep_unary(raw[i + 1 - count:])

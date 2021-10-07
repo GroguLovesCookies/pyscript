@@ -4,6 +4,9 @@ from errors import *
 import sys
 
 
+FLAG_TERMINATE = "TERMINATE_LOOP"
+
+
 def find_chunk(line_i, file_lines):
     line_num = line_i
     chunk = []
@@ -55,9 +58,11 @@ def run(lines, looping=False):
                         line_b = line_a
                         chunk_b = ""
                     if parsed[0]:
-                        run(chunk_a, looping)
+                        if run(chunk_a, looping) == FLAG_TERMINATE:
+                            return FLAG_TERMINATE
                     else:
-                        run(chunk_b, looping)
+                        if run(chunk_b, looping) == FLAG_TERMINATE:
+                            return FLAG_TERMINATE
                     chunk_to_use = chunk_b if line_b != line_a else chunk_a
                     i += len(chunk_to_use) - (len(chunk_to_use)-1)
                     continue
@@ -65,7 +70,9 @@ def run(lines, looping=False):
                     loop_chunk = find_chunk(i, lines)
                     line_a = i
                     if parsed[0]:
-                        run(loop_chunk, True)
+                        if run(loop_chunk, True) == FLAG_TERMINATE:
+                            i += len(loop_chunk) + 1
+                            continue
                         i = line_a
                     else:
                         i += len(loop_chunk) + 1
@@ -75,6 +82,10 @@ def run(lines, looping=False):
                     if not looping:
                         PyscriptSyntaxError("'continue' statement outside of loop", True)
                     return
+                if parsed[1] == "break":
+                    if not looping:
+                        PyscriptSyntaxError("'break' statement outside of loop", True)
+                    return FLAG_TERMINATE
 
         calculate(parsed)
         i += 1
