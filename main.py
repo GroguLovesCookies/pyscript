@@ -45,24 +45,29 @@ def run(lines, looping=False, original=False, global_line=0):
             i += 1
             new_global_line += 1
             continue
+        if tokenized[0].val == "else":
+            PyscriptSyntaxError("'else' without corresponding 'if'", True)
         parsed = parse(tokenized, raw, count)
         if type(parsed) == tuple:
             if type(parsed[0]) == bool:
                 if parsed[1] == "BRANCH":
                     chunk_a = find_chunk(i, lines)
-                    line_a = i
-                    i += len(chunk_a)
-                    new_global_line += len(chunk_a)
-                    line = lines[i]
-                    tokenized, raw, count = read(line.strip("\n").strip())
-                    if tokenized[0].val == "else":
-                        line_b = i
-                        chunk_b = find_chunk(i, lines)
+                    i += len(chunk_a)+1
+                    new_global_line += len(chunk_a)+1
+                    if i < len(lines):
+                        line = lines[i]
+                        tokenized, raw, count = read(line.strip("\n").strip())
+                        if len(tokenized) > 0:
+                            if tokenized[0].val == "else":
+                                chunk_b = find_chunk(i, lines)
+                            else:
+                                chunk_b = ""
+                        else:
+                            chunk_b = ""
                     else:
-                        line_b = line_a
                         chunk_b = ""
                     if parsed[0]:
-                        val = run(chunk_a, looping, global_line=new_global_line)
+                        val = run(chunk_a, looping, global_line=new_global_line-(len(chunk_a)+1))
                         if val == FLAG_TERMINATE:
                             return FLAG_TERMINATE
                         elif type(val) == tuple:
@@ -81,8 +86,8 @@ def run(lines, looping=False, original=False, global_line=0):
                             new_global_line += val[1] - i
                             i = val[1]
                             continue
-                    chunk_to_use = chunk_b if line_b != line_a else chunk_a
-                    i += len(chunk_to_use) - (len(chunk_to_use)-1)
+                    i += 0 if len(chunk_b) == 0 else len(chunk_b)+1
+                    global_line += 0 if len(chunk_b) == 0 else len(chunk_b)+1
                     continue
                 elif parsed[1] == "WHILE":
                     loop_chunk = find_chunk(i, lines)
@@ -116,7 +121,7 @@ def run(lines, looping=False, original=False, global_line=0):
                     if not original:
                         return "jump", parsed[2].line+1
         elif type(parsed) == Label:
-            parsed.line = global_line+i
+            parsed.line = new_global_line
             parsed.chunk = find_chunk(i, lines)
             # print(Label.all_labels) # Debug
             run(parsed.chunk, global_line=new_global_line+1)
