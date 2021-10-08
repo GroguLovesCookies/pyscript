@@ -59,6 +59,10 @@ def run(lines, looping=False, original=False, global_line=0):
                         tokenized, raw, count = read(line.strip("\n").strip())
                         if len(tokenized) > 0:
                             if tokenized[0].val == "else":
+                                if len(tokenized) == 1:
+                                    PyscriptSyntaxError("Missing colon at the end of 'else' statement", True)
+                                if tokenized[-1].type != "COL_END":
+                                    PyscriptSyntaxError("Missing colon at the end of 'else' statement", True)
                                 chunk_b = find_chunk(i, lines)
                             else:
                                 chunk_b = ""

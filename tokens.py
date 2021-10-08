@@ -35,6 +35,7 @@ TT_UNIT = "DUMMY"
 TT_BRANCH = "BRANCH"
 TT_INDEX = "INDEX"
 TT_WHILE = "WHILE"
+TT_COLON_END = "COL_END"
 
 # Define pseudo-types
 PT_ASSIGNMENT = "ASSIGNING"
@@ -262,6 +263,8 @@ def read(text, ignore_exception=False, group_by=""):
                 elif op == ":":
                     if i < len(text):
                         tokens.append(Token(None, TT_RANGE_TO))
+                    else:
+                        tokens.append(Token(TT_COLON_END, TT_RANGE_TO))
                 elif op == "::":
                     tokens.append(Token(None, TT_RANGE_THROUGH))
                 elif op == "=":
@@ -767,6 +770,8 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
             if token.val == KW_BREAK:
                 return None, KW_BREAK
             if token.val == KW_LABEL:
+                if tokenized[-1].type != TT_COLON_END:
+                    PyscriptSyntaxError("Missing colon at end of 'label'", True)
                 if next_token is None:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 if next_token.type == TT_VAR:
@@ -783,6 +788,8 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
 
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
+                if tokenized[-1].type != TT_COLON_END:
+                    PyscriptSyntaxError("Missing colon at end of 'if' statement", True)
                 bracketized = prep_unary(raw[i + 1 - count:])
                 bracketized, unused = bracketize(bracketized)
                 bracketized = unwrap_unary(bracketized)
@@ -803,6 +810,8 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
             if type(condition) != bool:
                 PyscriptSyntaxError("Invalid Syntax", True)
             else:
+                if tokenized[-1].type != TT_COLON_END:
+                    PyscriptSyntaxError("Missing colon at end of 'while' loop", True)
                 return condition, TT_WHILE
         i += 1
     return result
