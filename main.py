@@ -34,14 +34,16 @@ def find_chunk(line_i, file_lines):
     return chunk
 
 
-def run(lines, looping=False, original=False):
+def run(lines, looping=False, original=False, global_line=0):
     i = 0
+    new_global_line = global_line
     while i < len(lines):
         line = lines[i]
         tokenized, raw, count = read(line.strip("\n").strip())
 
         if len(tokenized) == 0:
             i += 1
+            new_global_line += 1
             continue
         parsed = parse(tokenized, raw, count)
         if type(parsed) == tuple:
@@ -50,6 +52,7 @@ def run(lines, looping=False, original=False):
                     chunk_a = find_chunk(i, lines)
                     line_a = i
                     i += len(chunk_a)
+                    new_global_line += len(chunk_a)
                     line = lines[i]
                     tokenized, raw, count = read(line.strip("\n").strip())
                     if tokenized[0].val == "else":
@@ -59,21 +62,23 @@ def run(lines, looping=False, original=False):
                         line_b = line_a
                         chunk_b = ""
                     if parsed[0]:
-                        val = run(chunk_a, looping)
+                        val = run(chunk_a, looping, global_line=new_global_line)
                         if val == FLAG_TERMINATE:
                             return FLAG_TERMINATE
                         elif type(val) == tuple:
                             if not original:
                                 return val
+                            new_global_line += val[1] - i
                             i = val[1]
                             continue
                     else:
-                        val = run(chunk_b, looping)
+                        val = run(chunk_b, looping, global_line=new_global_line)
                         if val == FLAG_TERMINATE:
                             return FLAG_TERMINATE
                         elif type(val) == tuple:
                             if not original:
                                 return val
+                            new_global_line += val[1] - i
                             i = val[1]
                             continue
                     chunk_to_use = chunk_b if line_b != line_a else chunk_a
@@ -86,14 +91,17 @@ def run(lines, looping=False, original=False):
                     elif type(val) == list:
                         if not original:
                             return val
+                        new_global_line += val[1] - i
                         i = val[1]
                         continue
                     line_a = i
                     if parsed[0]:
-                        val = run(loop_chunk, True)
+                        val = run(loop_chunk, True, global_line=new_global_line)
+                        new_global_line += line_a - i
                         i = line_a
                     else:
                         i += len(loop_chunk) + 1
+                        new_global_line += len(loop_chunk)+1
                     continue
             elif parsed[0] is None:
                 if parsed[1] == "continue":
@@ -108,14 +116,16 @@ def run(lines, looping=False, original=False):
                     if not original:
                         return "jump", parsed[2].line+1
         elif type(parsed) == Label:
-            parsed.line = i
+            parsed.line = global_line+i
             parsed.chunk = find_chunk(i, lines)
             # print(Label.all_labels) # Debug
+            run(parsed.chunk, global_line=new_global_line+1)
             i += len(parsed.chunk) + 1
-            run(parsed.chunk)
+            new_global_line += len(parsed.chunk) + 1
             continue
         calculate(parsed)
         i += 1
+        new_global_line += 1
 
 
 filename = "branch.pyscript"

@@ -15,3 +15,11 @@ if i <= 2:
 
 if k >= 0:
     jump Sub
+
+if k < 0:
+    blah = 0
+    label Blah:
+        blah = 6 + blah
+
+if blah <= 6:
+    jump Blah
