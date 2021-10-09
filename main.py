@@ -128,7 +128,8 @@ def run(lines, looping=False, original=False, global_line=0):
             parsed.line = new_global_line
             parsed.chunk = find_chunk(i, lines)
             # print(Label.all_labels) # Debug
-            run(parsed.chunk, global_line=new_global_line+1)
+            if not parsed.is_def_label:
+                run(parsed.chunk, global_line=new_global_line+1)
             i += len(parsed.chunk) + 1
             new_global_line += len(parsed.chunk) + 1
             continue
@@ -137,7 +138,7 @@ def run(lines, looping=False, original=False, global_line=0):
         new_global_line += 1
 
 
-filename = "branch.pyscript"
+filename = "print.pyscript"
 if len(sys.argv) > 1:
     filename = sys.argv[1]
 

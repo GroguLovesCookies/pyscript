@@ -58,9 +58,10 @@ KW_CONTINUE = "continue"
 KW_BREAK = "break"
 KW_LABEL = "label"
 KW_JUMP = "jump"
+KW_DEF_LABEL = "def_label"
 KEYWORDS = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
             KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
-            KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD}
+            KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD}
 
 # Define types
 types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
@@ -595,7 +596,7 @@ def pre_parse(tokenized):
     i = 0
     while i < len(tokenized):
         token = tokenized[i]
-        if token.val in [KW_LABEL, KW_JUMP]:
+        if token.val in [KW_LABEL, KW_JUMP, KW_DEF_LABEL]:
             return
         if token.pseudo_type == PT_REFERENCE:
             var_exists = False
@@ -776,6 +777,14 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
                     PyscriptSyntaxError("Invalid Syntax", True)
                 if next_token.type == TT_VAR:
                     return Label(next_token.val, 0, "")
+                PyscriptSyntaxError("Invalid Syntax", True)
+            if token.val == KW_DEF_LABEL:
+                if tokenized[-1].type != TT_COLON_END:
+                    PyscriptSyntaxError("Missing colon at end of 'def_label'", True)
+                if next_token is None:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                if next_token.type == TT_VAR:
+                    return Label(next_token.val, 0, "", True)
                 PyscriptSyntaxError("Invalid Syntax", True)
             if token.val == KW_JUMP:
                 if next_token is None:

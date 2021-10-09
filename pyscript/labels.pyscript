@@ -1,7 +1,8 @@
 i = 0
 k = 2
+n = 0
 
-label Add:
+def_label Add:
     i = i+2
 
 label Sub:
@@ -11,6 +12,7 @@ label Mul:
     k = k*2
 
 if i <= 2:
+    n = n+1
     jump Add
 
 if k >= 0:

@@ -1,10 +1,11 @@
 class Label:
     all_labels = []
 
-    def __init__(self, name, line, chunk):
+    def __init__(self, name, line, chunk, is_def_label=False):
         self.name = name
         self.line = line
         self.chunk = chunk
+        self.is_def_label = is_def_label
         Label.all_labels.append(self)
 
     def execute_label(self, run_command):
