@@ -52,6 +52,8 @@ def run(lines, looping=False, original=False, global_line=0):
             if type(parsed[0]) == bool:
                 if parsed[1] == "BRANCH":
                     chunk_a = find_chunk(i, lines)
+                    if len(chunk_a) == 0:
+                        PyscriptIndentationError("Unindented codeblock", True)
                     i += len(chunk_a)+1
                     new_global_line += len(chunk_a)+1
                     if i < len(lines):
@@ -64,6 +66,8 @@ def run(lines, looping=False, original=False, global_line=0):
                                 if tokenized[-1].type != "COL_END":
                                     PyscriptSyntaxError("Missing colon at the end of 'else' statement", True)
                                 chunk_b = find_chunk(i, lines)
+                                if len(chunk_b) == 0:
+                                    PyscriptIndentationError("Unindented codeblock", True)
                             else:
                                 chunk_b = ""
                         else:
@@ -95,6 +99,8 @@ def run(lines, looping=False, original=False, global_line=0):
                     continue
                 elif parsed[1] == "WHILE":
                     loop_chunk = find_chunk(i, lines)
+                    if len(loop_chunk) == 0:
+                        PyscriptIndentationError("Unindented codeblock", True)
                     if val == FLAG_TERMINATE:
                         return FLAG_TERMINATE
                     elif type(val) == list:
@@ -124,6 +130,11 @@ def run(lines, looping=False, original=False, global_line=0):
                 if parsed[1] == "jump":
                     if not original:
                         return "jump", parsed[2].line+1
+                if parsed[1] == "call":
+                    run(parsed[2].chunk)
+                    i += 1
+                    new_global_line += 1
+                    continue
         elif type(parsed) == Label:
             parsed.line = new_global_line
             parsed.chunk = find_chunk(i, lines)

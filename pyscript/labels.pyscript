@@ -13,10 +13,10 @@ label Mul:
 
 if i <= 2:
     n = n+1
-    jump Add
+    call Add
 
 if k >= 0:
-    jump Sub
+    call Sub
 
 if k < 0:
     blah = 0

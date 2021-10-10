@@ -31,3 +31,8 @@ class PyscriptAssignmentError(Error):
 class PyscriptIndexError(Error):
     def __init__(self, msg, auto_throw=False):
         Error.__init__(self, "IndexError", msg, auto_throw)
+
+
+class PyscriptIndentationError(Error):
+    def __init__(self, msg, auto_throw=False):
+        Error.__init__(self, "IndentationError", msg, auto_throw)

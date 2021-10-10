@@ -3,11 +3,13 @@
     <words>
       <w>bracketize</w>
       <w>bracketized</w>
+      <w>codeblock</w>
       <w>lparen</w>
       <w>pyscript</w>
       <w>referncing</w>
       <w>rparen</w>
       <w>splitted</w>
+      <w>unindented</w>
     </words>
   </dictionary>
 </component>
