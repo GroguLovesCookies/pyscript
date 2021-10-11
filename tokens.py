@@ -60,13 +60,18 @@ KW_LABEL = "label"
 KW_JUMP = "jump"
 KW_CALL = "call"
 KW_DEF_LABEL = "def_label"
+KW_IN = "in"
+KW_NOT_IN = "not in"
 KEYWORDS = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
             KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
             KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
-            KW_CALL: TT_KEYWORD}
+            KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None}
+
+compound_kws = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
 # Define types
 types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
+hashable_types = [TT_INT, TT_FLOAT, TT_STR, TT_BOOL]
 
 # Define unary operators
 un_ops = [KW_NOT]
@@ -201,6 +206,7 @@ def read(text, ignore_exception=False, group_by=""):
             if i >= len(list(text)):
                 if not ignore_exception:
                     analyse_tokens(tokens)
+                tokens = compound_operators(tokens)
                 raw = tokens[:]
                 tokens = prep_unary(tokens)
                 tokens, count = bracketize(tokens)
@@ -406,6 +412,29 @@ def analyse_tokens(tokenized):
             # Constructions like "8 100" are not allowed
             if token.type == TT_INT and tokenized[i + 1].type == TT_INT:
                 PyscriptSyntaxError("Invalid Syntax", True)
+
+
+def compound_operators(tokenized):
+    """A function to combine tokens like 'not' and 'in' to 'not in'"""
+    for item in compound_kws.items():
+        pattern = item[1]
+        keyword = item[0]
+        i = 0
+        match_index = 0
+        match_start = -1
+        while i < len(tokenized):
+            if tokenized[i].val == pattern[match_index]:
+                if match_index == 0:
+                    match_start = i
+                match_index += 1
+                if match_index == len(pattern):
+                    del tokenized[match_start: i]
+                    tokenized[match_start] = Token(KEYWORDS[keyword], keyword)
+            else:
+                match_index = 0
+                match_start = -1
+            i += 1
+    return tokenized
 
 
 def assign_pseudo_types(tokenized):
@@ -735,6 +764,16 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
                 result = BinOpNode(previous_node, next_node, "xor", lambda a, b: (a or b) and not (a and b))
             elif token.val == KW_NOT:
                 result = UnOpNode(next_node, "not", lambda a: not a)
+
+            elif token.val == KW_IN:
+                if previous.type not in hashable_types or type(next_token.val) != list:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                result = BinOpNode(previous_node, next_node, "in", lambda a, b: a in b)
+            elif token.val == KW_NOT_IN:
+                if previous.type not in hashable_types or type(next_token.val) != list:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                result = BinOpNode(previous_node, next_node, "not in", lambda a, b: a not in b)
+
         elif token.type == TT_EQUALS:
             if previous is not None:
                 if previous.type == TT_VAR:
