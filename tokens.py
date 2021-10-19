@@ -41,9 +41,11 @@ TT_COLON_END = "COL_END"
 
 # Define pseudo-types
 PT_ASSIGNMENT = "ASSIGNING"
-PT_REFERENCE = "REFERNCING"
+PT_REFERENCE = "REFERENCING"
 PT_INDEX_ASSIGNMENT = "INDEX_ASSIGN"
 PT_INDEX_REFERENCE = "INDEX_REFERENCE"
+PT_USING_ASSIGN = "USING_ASSIGN"
+PT_USING_REFERENCE = "USING_REFERENCE"
 
 # Define keywords
 KW_READONLY = "readonly"
@@ -446,37 +448,50 @@ def assign_pseudo_types(tokenized: List[Token]):
 
     # Set initial state
     i: int = 0
+    using_flag: bool = False
 
     # Assignment loop
     while i < len(tokenized):
         token: Token = tokenized[i]
+        if token.val == KW_USING:
+            using_flag = True
         if token.type == TT_VAR:
-            pseudo_type, extra_args = check_variable(tokenized, i)
+            pseudo_type, extra_args = check_variable(tokenized, i, using_flag)
             token.pseudo_type = pseudo_type
             token.extra_params = extra_args
         i += 1
 
 
-def check_variable(tokenized: List[Token], i: int) -> Tuple[str, List[int]]:
+def check_variable(tokenized: List[Token], i: int, is_using: bool = False) -> Tuple[str, List[int]]:
     # If it is a variable, it can be either
     # referenced or assigned.
     if i == len(tokenized) - 1:
         # In the construction "foo = bar",
         # "bar" is referenced as it is at
         # the end.
+        if is_using:
+            return PT_USING_REFERENCE, []
         return PT_REFERENCE, []
     elif tokenized[i + 1].type == TT_EQUALS:
         # In the construction "foo = bar",
         # "foo" is assigned as it has an
         # equals sign next to it.
+        if is_using:
+            return PT_USING_ASSIGN, []
         return PT_ASSIGNMENT, []
+    elif tokenized[i - 1].type == TT_EQUALS:
+        return PT_REFERENCE, []
     elif tokenized[i + 1].type == TT_INDEX:
+        if is_using:
+            PyscriptSyntaxError("Cannot define index in 'using' context")
         pseudo_type, extra_parameters = check_variable(tokenized, i + 1)
         return indexed[pseudo_type], [tokenized[i + 1].val, *extra_parameters]
     else:
         # In the construction "foobar = foo + bar",
         # "foo" is referenced as it is not succeeded
         # by an equals sign.
+        if is_using:
+            return PT_USING_REFERENCE, []
         return PT_REFERENCE, []
 
 
@@ -794,7 +809,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
         elif token.type == TT_EQUALS:
             if previous is not None:
                 if previous.type == TT_VAR:
-                    if previous.pseudo_type == PT_ASSIGNMENT:
+                    if previous.pseudo_type in [PT_ASSIGNMENT, PT_USING_ASSIGN]:
                         name: str = previous.val
                         bracketized: List[Token] = prep_unary(raw[i + 1 - count:])
                         bracketized, unused = bracketize(bracketized)
@@ -864,9 +879,11 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                     PyscriptSyntaxError("Missing colon at end of 'using'", True)
                 var_names: List[str] = []
                 for section in split_list_by_token(TT_COMMA, TT_COMMA, raw[i + 1 - count:len(raw) - 1]):
-                    if section[0].pseudo_type != PT_ASSIGNMENT:
+                    if section[0].pseudo_type not in [PT_USING_REFERENCE, PT_USING_ASSIGN]:
                         PyscriptSyntaxError("Invalid Syntax/Unassigned variable in 'using' context", True)
                     var_names.append(section[0].val)
+                    if section[0].pseudo_type == PT_USING_REFERENCE:
+                        continue
                     bracketized: List[Token] = prep_unary(section)
                     bracketized, unused = bracketize(bracketized)
                     bracketized = unwrap_unary(bracketized)
