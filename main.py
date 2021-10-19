@@ -1,5 +1,5 @@
 from tokens import calculate, parse, read
-from vars import global_vars
+from vars import global_vars, remove_var
 from labels import *
 from errors import *
 import sys
@@ -101,17 +101,17 @@ def run(lines, looping=False, original=False, global_line=0):
                     loop_chunk = find_chunk(i, lines)
                     if len(loop_chunk) == 0:
                         PyscriptIndentationError("Unindented codeblock", True)
-                    if val == FLAG_TERMINATE:
-                        return FLAG_TERMINATE
-                    elif type(val) == list:
-                        if not original:
-                            return val
-                        new_global_line += val[1] - i
-                        i = val[1]
-                        continue
                     line_a = i
                     if parsed[0]:
                         val = run(loop_chunk, True, global_line=new_global_line)
+                        if val == FLAG_TERMINATE:
+                            return FLAG_TERMINATE
+                        elif type(val) == list:
+                            if not original:
+                                return val
+                            new_global_line += val[1] - i
+                            i = val[1]
+                            continue
                         new_global_line += line_a - i
                         i = line_a
                     else:
@@ -134,6 +134,14 @@ def run(lines, looping=False, original=False, global_line=0):
                     run(parsed[2].chunk)
                     i += 1
                     new_global_line += 1
+                    continue
+                if parsed[1] == "using":
+                    using_chunk = find_chunk(i, lines)
+                    run(using_chunk, looping=looping)
+                    i += len(using_chunk) + 1
+                    new_global_line += len(using_chunk) + 1
+                    for var_name in parsed[2]:
+                        remove_var(var_name)
                     continue
         elif type(parsed) == Label:
             parsed.line = new_global_line

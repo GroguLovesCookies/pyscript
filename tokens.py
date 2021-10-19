@@ -1,9 +1,10 @@
 # Imports
 from errors import *
-from vars import set_var, global_vars, index_set_var
+from vars import set_var, global_vars, index_set_var, Variable
 from labels import *
 from nodes import *
 from range import range_from_to
+from typing import List, Dict, Tuple, Union
 
 # Define tokens
 TT_PLUS = "PLUS"
@@ -35,6 +36,7 @@ TT_UNIT = "DUMMY"
 TT_BRANCH = "BRANCH"
 TT_INDEX = "INDEX"
 TT_WHILE = "WHILE"
+TT_COMMA = "COMMA"
 TT_COLON_END = "COL_END"
 
 # Define pseudo-types
@@ -62,26 +64,27 @@ KW_CALL = "call"
 KW_DEF_LABEL = "def_label"
 KW_IN = "in"
 KW_NOT_IN = "not in"
-KEYWORDS = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
-            KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
-            KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
-            KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None}
+KW_USING = "using"
+KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
+                  KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
+                  KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
+                  KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None, KW_USING: TT_KEYWORD}
 
-compound_kws = {KW_NOT_IN: [KW_NOT, KW_IN]}
+compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
 # Define types
-types = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
-hashable_types = [TT_INT, TT_FLOAT, TT_STR, TT_BOOL]
+types: List[str] = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
+hashable_types: List[str] = [TT_INT, TT_FLOAT, TT_STR, TT_BOOL]
 
 # Define unary operators
-un_ops = [KW_NOT]
+un_ops: List[str] = [KW_NOT]
 
 # Define operator list
-op_chars = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!", ":"]
+op_chars: List[chr] = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!", ":", ","]
 
 # Define indexed versions of un-indexed pseudo-types
-indexed = {PT_ASSIGNMENT: PT_INDEX_ASSIGNMENT, PT_REFERENCE: PT_INDEX_REFERENCE,
-           PT_INDEX_ASSIGNMENT: PT_INDEX_ASSIGNMENT, PT_INDEX_REFERENCE: PT_INDEX_REFERENCE}
+indexed: Dict[str, str] = {PT_ASSIGNMENT: PT_INDEX_ASSIGNMENT, PT_REFERENCE: PT_INDEX_REFERENCE,
+                           PT_INDEX_ASSIGNMENT: PT_INDEX_ASSIGNMENT, PT_INDEX_REFERENCE: PT_INDEX_REFERENCE}
 
 
 # Class Token
@@ -92,21 +95,21 @@ class Token:
         self.val = val
         self.type = tok_type
         self.pseudo_type = None
-        self.extra_params = []
+        self.extra_params: List = []
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.type is None:
             return self.val
         return f"{self.type}:{self.val}"
 
 
-def prep_unary(tokenized):
-    start_index_stack = []
-    i = 0
-    start_index = -1
-    insert_number = 0
+def prep_unary(tokenized: List[Token]) -> List[Token]:
+    start_index_stack: List[int] = []
+    i: int = 0
+    start_index: int = -1
+    insert_number: int = 0
     while i < len(tokenized):
-        token = tokenized[i]
+        token: Token = tokenized[i]
         if token.val == KW_NOT:
             if start_index < 0:
                 start_index = i
@@ -117,10 +120,10 @@ def prep_unary(tokenized):
             elif token.val == TT_RPAREN:
                 start_index = start_index_stack.pop()
             elif start_index >= 0:
-                change = insert_number
+                change: int = insert_number
                 if insert_number > 0:
-                    change = insert_number-1
-                thing = tokenized[start_index: i + 1 - change]
+                    change = insert_number - 1
+                thing: List[Token] = tokenized[start_index: i + 1 - change]
                 del tokenized[start_index: i - change]
                 i -= len(thing) - 1
                 tokenized[start_index] = Token(TT_UNIT, thing)
@@ -130,10 +133,10 @@ def prep_unary(tokenized):
     return tokenized
 
 
-def unwrap_unary(tokenized):
-    i = 0
+def unwrap_unary(tokenized: List[Token]) -> List[Token]:
+    i: int = 0
     while i < len(tokenized):
-        token = tokenized[i]
+        token: Token = tokenized[i]
         if token.type == TT_UNIT:
             del tokenized[i]
             tokenized.insert(i, Token(TT_BRACKET, TT_RPAREN))
@@ -144,11 +147,11 @@ def unwrap_unary(tokenized):
     return tokenized
 
 
-def split_list(text, character=" ", strip=False):
-    splitted = []
-    quote_ignore = False
-    bracket_ignore = False
-    current = ""
+def split_list(text: str, character: str = " ", strip: bool = False) -> List[str]:
+    splitted: List[str] = []
+    quote_ignore: bool = False
+    bracket_ignore: bool = False
+    current: str = ""
 
     for char in text:
         if char == "\"":
@@ -175,10 +178,10 @@ def split_list(text, character=" ", strip=False):
     return splitted
 
 
-def get_list(text, i):
-    listed = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True, group_by=",")
+def get_list(text: str, i: int) -> Token:
+    listed: List[Token] = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True, group_by=",")
     i = get_closing_text(text[i:], "[", "]") + i
-    j = 0
+    j: int = 0
     while j < len(listed):
         listed[j] = calculate(parse(listed[j]))
         j += 1
@@ -186,18 +189,18 @@ def get_list(text, i):
 
 
 # Reading function
-def read(text, ignore_exception=False, group_by=""):
+def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[Token]:
     """A function to tokenize input text"""
 
     if group_by != "":
-        results = [read(item)[0] for item in split_list(text, ",", True)]
+        results: List[Token] = [read(item)[0] for item in split_list(text, ",", True)]
         return results
     else:
         # Set initial state
-        tokens = []
-        i = 0
-        multiplier = 1
-        latest = None
+        tokens: List[Token] = []
+        i: int = 0
+        multiplier: int = 1
+        latest: Token = None
 
         # Read loop
         while True:
@@ -207,7 +210,7 @@ def read(text, ignore_exception=False, group_by=""):
                 if not ignore_exception:
                     analyse_tokens(tokens)
                 tokens = compound_operators(tokens)
-                raw = tokens[:]
+                raw: List[Token] = tokens[:]
                 tokens = prep_unary(tokens)
                 tokens, count = bracketize(tokens)
                 tokens = unwrap_unary(tokens)
@@ -218,11 +221,10 @@ def read(text, ignore_exception=False, group_by=""):
                 return tokens, raw, count
 
             # Analyse character
-            char = text[i]
-
+            char: chr = text[i]
             # Operator checks
             if char in op_chars:
-                op = ""
+                op: str = ""
                 while char in op_chars:
                     op += char
                     i += 1
@@ -278,6 +280,8 @@ def read(text, ignore_exception=False, group_by=""):
                     tokens.append(Token(None, TT_RANGE_THROUGH))
                 elif op == "=":
                     tokens.append(Token(TT_EQUALS, TT_EQUALS))
+                elif op == ",":
+                    tokens.append(Token(TT_COMMA, TT_COMMA))
                 else:
                     PyscriptSyntaxError("Invalid Syntax", True)
 
@@ -296,7 +300,7 @@ def read(text, ignore_exception=False, group_by=""):
             elif char == "[":
                 if latest is not None:
                     if latest.type == TT_VAR or latest.type == TT_INDEX:
-                        index = calculate(parse(*read(text_extract(text[i:], opening="[", closing="]"))))
+                        index: int = calculate(parse(*read(text_extract(text[i:], opening="[", closing="]"))))
                         tokens.append(Token(TT_INDEX, index))
                         i += get_closing_text(text[i:], opening="[", closing="]")
                     else:
@@ -311,8 +315,8 @@ def read(text, ignore_exception=False, group_by=""):
             # be accepted
             if char.isnumeric():
                 # Start initial state of number reader
-                number = ""
-                dot_count = 0
+                number: str = ""
+                dot_count: int = 0
 
                 # Number can have digits or a decimal point
                 while char.isnumeric() or char == ".":
@@ -354,7 +358,7 @@ def read(text, ignore_exception=False, group_by=""):
             # Only allowed characters are letters and underscores
             elif char.isalpha() or char == "_":
                 # Set initial state for variable reader
-                name = ""
+                name: str = ""
 
                 # Loop until un-matching character is found
                 while char.isalpha() or char == "_":
@@ -370,7 +374,7 @@ def read(text, ignore_exception=False, group_by=""):
 
                 # Check if word is keyword or variable
                 if name in KEYWORDS.keys():
-                    kw_type = KEYWORDS[name]
+                    kw_type: str = KEYWORDS[name]
                     if kw_type == TT_BOOL:
                         if name == "True":
                             name = True
@@ -383,7 +387,7 @@ def read(text, ignore_exception=False, group_by=""):
             # Look for strings
             elif char == "\"":
                 # Set initial state
-                string = r""
+                string: str = r""
                 if i < len(text) - 1:
                     i += 1
                     char = text[i]
@@ -404,7 +408,7 @@ def read(text, ignore_exception=False, group_by=""):
 
 
 # Analyse tokens
-def analyse_tokens(tokenized):
+def analyse_tokens(tokenized: List[Token]):
     """A function to make sure tokenized syntax is correct"""
     for i in range(0, len(tokenized)):
         token = tokenized[i]
@@ -414,14 +418,14 @@ def analyse_tokens(tokenized):
                 PyscriptSyntaxError("Invalid Syntax", True)
 
 
-def compound_operators(tokenized):
+def compound_operators(tokenized: List[Token]) -> List[Token]:
     """A function to combine tokens like 'not' and 'in' to 'not in'"""
     for item in compound_kws.items():
-        pattern = item[1]
-        keyword = item[0]
-        i = 0
-        match_index = 0
-        match_start = -1
+        pattern: List[str] = item[1]
+        keyword: str = item[0]
+        i: int = 0
+        match_index: int = 0
+        match_start: int = -1
         while i < len(tokenized):
             if tokenized[i].val == pattern[match_index]:
                 if match_index == 0:
@@ -437,15 +441,15 @@ def compound_operators(tokenized):
     return tokenized
 
 
-def assign_pseudo_types(tokenized):
+def assign_pseudo_types(tokenized: List[Token]):
     """A function to assign pseudo-types to tokens after reading"""
 
     # Set initial state
-    i = 0
+    i: int = 0
 
     # Assignment loop
     while i < len(tokenized):
-        token = tokenized[i]
+        token: Token = tokenized[i]
         if token.type == TT_VAR:
             pseudo_type, extra_args = check_variable(tokenized, i)
             token.pseudo_type = pseudo_type
@@ -453,7 +457,7 @@ def assign_pseudo_types(tokenized):
         i += 1
 
 
-def check_variable(tokenized, i):
+def check_variable(tokenized: List[Token], i: int) -> Tuple[str, List[int]]:
     # If it is a variable, it can be either
     # referenced or assigned.
     if i == len(tokenized) - 1:
@@ -461,14 +465,14 @@ def check_variable(tokenized, i):
         # "bar" is referenced as it is at
         # the end.
         return PT_REFERENCE, []
-    elif tokenized[i+1].type == TT_EQUALS:
+    elif tokenized[i + 1].type == TT_EQUALS:
         # In the construction "foo = bar",
         # "foo" is assigned as it has an
         # equals sign next to it.
         return PT_ASSIGNMENT, []
-    elif tokenized[i+1].type == TT_INDEX:
-        pseudo_type, extra_parameters = check_variable(tokenized, i+1)
-        return indexed[pseudo_type], [tokenized[i+1].val, *extra_parameters]
+    elif tokenized[i + 1].type == TT_INDEX:
+        pseudo_type, extra_parameters = check_variable(tokenized, i + 1)
+        return indexed[pseudo_type], [tokenized[i + 1].val, *extra_parameters]
     else:
         # In the construction "foobar = foo + bar",
         # "foo" is referenced as it is not succeeded
@@ -476,30 +480,30 @@ def check_variable(tokenized, i):
         return PT_REFERENCE, []
 
 
-def remove_index_tokens(tokenized):
-    output = tokenized[:]
-    i = 0
-    deletion_number = 0
+def remove_index_tokens(tokenized: List[Token]) -> List[Token]:
+    output: List[Token] = tokenized[:]
+    i: int = 0
+    deletion_number: int = 0
     while i < len(tokenized):
-        token = tokenized[i]
+        token: Token = tokenized[i]
         if token.type == TT_INDEX:
-            del output[i-deletion_number]
+            del output[i - deletion_number]
             deletion_number += 1
         i += 1
     return output
 
 
-def text_extract(expr, opening="(", closing=")"):
+def text_extract(expr: str, opening: chr = "(", closing: chr = ")") -> str:
     # Start initial state: i = 1 because
     # it is assumed that the first token
     # is an opening bracket.
-    bracket_no = 1
-    out = []
-    i = 1
+    bracket_no: int = 1
+    out: List[chr] = []
+    i: int = 1
 
     # Loop
     while i < len(expr) and bracket_no > 0:
-        char = expr[i]
+        char: chr = expr[i]
         if char == opening:
             bracket_no += 1 if i > 0 else 0
         if char == closing:
@@ -513,25 +517,25 @@ def text_extract(expr, opening="(", closing=")"):
     return "".join(out)
 
 
-def bracket_extract(expr, opening=TT_LPAREN, closing=TT_RPAREN):
+def bracket_extract(expr: List[Token], opening: str = TT_LPAREN, closing: str = TT_RPAREN) -> List[Token]:
     """A function to get the part between brackets"""
 
     # Start initial state: i = 1 because
     # it is assumed that the first token
     # is an opening bracket.
-    bracket_no = 1
-    out = []
-    i = 1
+    bracket_no: int = 1
+    out: List[Token] = []
+    i: int = 1
 
     # Loop
     while i < len(expr) and bracket_no > 0:
-        char = expr[i]
-        if char.val == opening:
+        token: int = expr[i]
+        if token.val == opening:
             bracket_no += 1 if i > 0 else 0
-        if char.val == closing:
+        if token.val == closing:
             bracket_no -= 1
 
-        out.append(char)
+        out.append(token)
         i += 1
 
     del out[-1]
@@ -539,15 +543,15 @@ def bracket_extract(expr, opening=TT_LPAREN, closing=TT_RPAREN):
     return out
 
 
-def bracketize(tokenized, unary=False):
-    output = tokenized[:]
-    op_no = 0
-    op_stack = []
-    i = len(tokenized) - 1 if not unary else 0
-    inserted = 0
-    loop_condition = i >= 0 if not unary else i < len(tokenized)
+def bracketize(tokenized: List[Token], unary: bool = False) -> Tuple[List[Token], int]:
+    output: List[Token] = tokenized[:]
+    op_no: int = 0
+    op_stack: List[int] = []
+    i: int = len(tokenized) - 1 if not unary else 0
+    inserted: int = 0
+    loop_condition: int = i >= 0 if not unary else i < len(tokenized)
     while loop_condition:
-        token = tokenized[i]
+        token: Token = tokenized[i]
 
         if token.type is None:
             op_no += 1
@@ -581,39 +585,39 @@ def bracketize(tokenized, unary=False):
     return output, inserted
 
 
-def get_closing(expr, opening=TT_LPAREN, closing=TT_RPAREN):
-    bracket_no = 1
-    i = 1
+def get_closing(expr: List[Token], opening: str = TT_LPAREN, closing: str = TT_RPAREN) -> int:
+    bracket_no: int = 1
+    i: int = 1
     while i < len(expr) and bracket_no > 0:
-        char = expr[i]
-        if char.val == opening:
+        token: Token = expr[i]
+        if token.val == opening:
             bracket_no += 1 if i > 0 else 0
-        if char.val == closing:
+        if token.val == closing:
             bracket_no -= 1
         i += 1
 
     return i - 1
 
 
-def get_opening(expr, opening=TT_LPAREN, closing=TT_RPAREN):
-    bracket_no = 1
-    i = len(expr) - 2
+def get_opening(expr: List[Token], opening: str = TT_LPAREN, closing: str = TT_RPAREN) -> int:
+    bracket_no: int = 1
+    i: int = len(expr) - 2
     while i > 0 and bracket_no > 0:
-        char = expr[i]
-        if char.val == closing:
+        token: Token = expr[i]
+        if token.val == closing:
             bracket_no += 1 if i > 0 else 0
-        if char.val == opening:
+        if token.val == opening:
             bracket_no -= 1
         i -= 1
 
     return i + 1
 
 
-def get_closing_text(expr, opening="(", closing=")"):
-    bracket_no = 1
-    i = 1
+def get_closing_text(expr: str, opening: chr = "(", closing: chr = ")") -> int:
+    bracket_no: int = 1
+    i: int = 1
     while i < len(expr) and bracket_no > 0:
-        char = expr[i]
+        char: chr = expr[i]
         if char == opening:
             bracket_no += 1 if i > 0 else 0
         if char == closing:
@@ -623,14 +627,27 @@ def get_closing_text(expr, opening="(", closing=")"):
     return i - 1
 
 
-def pre_parse(tokenized):
-    i = 0
+def split_list_by_token(tok_type: str, tok_val, tokenized: List[Token]) -> List[List[Token]]:
+    splitted: List[List[Token]] = []
+    current_split: List[Token] = []
+    for token in tokenized:
+        if token.type == tok_type and token.val == tok_val:
+            splitted.append(current_split)
+            current_split = []
+            continue
+        current_split.append(token)
+    splitted.append(current_split)
+    return splitted
+
+
+def pre_parse(tokenized: List[Token]):
+    i: int = 0
     while i < len(tokenized):
-        token = tokenized[i]
+        token: Token = tokenized[i]
         if token.val in [KW_LABEL, KW_JUMP, KW_CALL, KW_DEF_LABEL]:
             return
         if token.pseudo_type == PT_REFERENCE:
-            var_exists = False
+            var_exists: bool = False
             for var in global_vars:
                 if token.val == var.name:
                     tokenized[i] = Token(TT_INT, var.value)
@@ -638,14 +655,14 @@ def pre_parse(tokenized):
             if not var_exists:
                 PyscriptNameError(f"variable '{token.val}' was referenced before assignment", True)
         elif token.pseudo_type == PT_ASSIGNMENT:
-            found_var = None
+            found_var: Variable = None
             for var in global_vars:
                 if token.val == var.name:
                     found_var = var
             if found_var is not None and found_var.readonly:
                 PyscriptAssignmentError(f"Editing readonly variable '{found_var.name}'", True)
         elif token.pseudo_type == PT_INDEX_REFERENCE:
-            var_exists = False
+            var_exists: bool = False
             for var in global_vars:
                 if token.val == var.name:
                     element = None
@@ -655,9 +672,9 @@ def pre_parse(tokenized):
                         element = var.value[token.extra_params[0]]
                     elif type(token.extra_params[0]) == list:
                         temp = var.value
-                        element = []
+                        element: List = []
                         for j in token.extra_params[0]:
-                            if j > len(temp)-1:
+                            if j > len(temp) - 1:
                                 PyscriptIndexError(f"Index {j} is out of range", True)
                             else:
                                 element.append(temp[j])
@@ -684,21 +701,21 @@ def pre_parse(tokenized):
         i += 1
 
 
-def parse(tokenized, raw=None, count=0, level_condition=None):
+def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Union[Node, Tuple, Label]:
     pre_parse(tokenized)
     if raw is None:
         raw = tokenized[:]
-    result = [tokenized[0]]
+    result: Node = [tokenized[0]]
 
     if len(tokenized) == 1 and tokenized[0].type in types:
         return ValueNode(tokenized[0].val)
 
-    i = 0
-    readonly_flag = False
+    i: int = 0
+    readonly_flag: bool = False
     while i < len(tokenized):
-        token = tokenized[i]
-        previous = None
-        next_token = None
+        token: Token = tokenized[i]
+        previous: Token = None
+        next_token: Token = None
 
         if i > 0:
             previous = tokenized[i - 1]
@@ -713,8 +730,8 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
                 if next_token is None:
                     PyscriptSyntaxError("Invalid Syntax", True)
 
-            previous_node = None
-            next_node = None
+            previous_node: Node = None
+            next_node: Node = None
             if next_token is not None:
                 next_node = next_token.val
                 if next_token.val == TT_LPAREN:
@@ -741,7 +758,7 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
             elif token.val == TT_RANGE_TO:
                 result = BinOpNode(previous_node, next_node, ":", lambda a, b: range_from_to(a, b))
             elif token.val == TT_RANGE_THROUGH:
-                result = BinOpNode(previous_node, next_node, "::", lambda a, b: range_from_to(a, b+1))
+                result = BinOpNode(previous_node, next_node, "::", lambda a, b: range_from_to(a, b + 1))
 
             elif token.val == TT_GREATER:
                 result = BinOpNode(previous_node, next_node, ">", lambda a, b: a > b)
@@ -778,17 +795,16 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
             if previous is not None:
                 if previous.type == TT_VAR:
                     if previous.pseudo_type == PT_ASSIGNMENT:
-                        name = previous.val
-                        bracketized = prep_unary(raw[i + 1 - count:])
+                        name: str = previous.val
+                        bracketized: List[Token] = prep_unary(raw[i + 1 - count:])
                         bracketized, unused = bracketize(bracketized)
                         bracketized = unwrap_unary(bracketized)
                         value = calculate(parse(bracketized))
-                        local_flag = readonly_flag
-                        result = BinOpNode(name, value, "=", lambda a, b: set_var(a, b, local_flag))
+                        result = BinOpNode(name, value, "=", lambda a, b: set_var(a, b, readonly_flag))
                         return result
                     elif previous.pseudo_type == PT_INDEX_ASSIGNMENT:
-                        name = previous.val
-                        bracketized = prep_unary(raw[i + 1 - count:])
+                        name: str = previous.val
+                        bracketized: List[Token] = prep_unary(raw[i + 1 - count:])
                         bracketized, unused = bracketize(bracketized)
                         bracketized = unwrap_unary(bracketized)
                         value = calculate(parse(bracketized))
@@ -843,28 +859,37 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
                         return None, KW_CALL, find_label(next_token.val)
                     PyscriptNameError(f"Label {next_token.val} does not exist", True)
                 PyscriptSyntaxError("Invalid Syntax", True)
+            if token.val == KW_USING:
+                if tokenized[-1].type != TT_COLON_END:
+                    PyscriptSyntaxError("Missing colon at end of 'using'", True)
+                var_names: List[str] = []
+                for section in split_list_by_token(TT_COMMA, TT_COMMA, raw[i + 1 - count:len(raw) - 1]):
+                    if section[0].pseudo_type != PT_ASSIGNMENT:
+                        PyscriptSyntaxError("Invalid Syntax/Unassigned variable in 'using' context", True)
+                    var_names.append(section[0].val)
+                    bracketized: List[Token] = prep_unary(section)
+                    bracketized, unused = bracketize(bracketized)
+                    bracketized = unwrap_unary(bracketized)
+                    calculate(parse(bracketized))
+                return None, KW_USING, var_names
 
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
                 if tokenized[-1].type != TT_COLON_END:
                     PyscriptSyntaxError("Missing colon at end of 'if' statement", True)
-                bracketized = prep_unary(raw[i + 1 - count:])
+                bracketized: List[Token] = prep_unary(raw[i + 1 - count:])
                 bracketized, unused = bracketize(bracketized)
                 bracketized = unwrap_unary(bracketized)
-                condition = calculate(parse(bracketized))
+                condition: bool = calculate(parse(bracketized))
                 if type(condition) != bool:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 else:
                     return condition, TT_BRANCH
-            if token.val == KW_ELSE:
-                if level_condition is None:
-                    PyscriptSyntaxError("Invalid Syntax", True)
-                return not level_condition
         elif token.type == TT_WHILE:
-            bracketized = prep_unary(raw[i + 1 - count:])
+            bracketized: List[Token] = prep_unary(raw[i + 1 - count:])
             bracketized, unused = bracketize(bracketized)
             bracketized = unwrap_unary(bracketized)
-            condition = calculate(parse(bracketized))
+            condition: bool = calculate(parse(bracketized))
             if type(condition) != bool:
                 PyscriptSyntaxError("Invalid Syntax", True)
             else:
@@ -875,5 +900,5 @@ def parse(tokenized, raw=None, count=0, level_condition=None):
     return result
 
 
-def calculate(node):
+def calculate(node: Node):
     return node.get_value()

@@ -1,0 +1,8 @@
+using i = 8, j = 8:
+    k = i + j
+
+using k = k, i = 0:
+    j = 1
+    while i > 0:
+        i = i - 1
+        j = j * 3

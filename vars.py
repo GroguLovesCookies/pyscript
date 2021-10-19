@@ -30,6 +30,15 @@ def set_var(name, value, readonly=False):
     return create_var(name, value, readonly)
 
 
+def remove_var(name):
+    i = 0
+    while i < len(global_vars):
+        if global_vars[i].name == name:
+            del global_vars[i]
+            break
+        i += 1
+
+
 def index_set_var(name, value, indices):
     for var in global_vars:
         if var.name == name:
