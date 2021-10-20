@@ -3,6 +3,8 @@ from vars import global_vars, remove_var
 from labels import *
 from errors import *
 import sys
+import time
+from typing import List
 
 
 FLAG_TERMINATE = "TERMINATE_LOOP"
@@ -164,15 +166,29 @@ def run(lines: List[str], looping: bool = False, original: bool = False, global_
 
 
 filename: str = "print.pyscript"
+timing: bool = False
 if len(sys.argv) > 1:
     filename: str = sys.argv[1]
+if len(sys.argv) > 2:
+    if sys.argv[2] == "timed":
+        timing = True
+    if not timing:
+        print("Could not recognise command")
+        sys.exit(1)
 
 
 with open("pyscript/" + filename, "r+") as f:
     program: List[str] = []
     for l in f:
         program.append(l)
-    run(program, original=True)
+    if timing:
+        start_time = time.time()
+        run(program, original=True)
+        elapsed_time = time.time() - start_time
+        print(f"Time taken: {elapsed_time}")
+    else:
+        run(program, original=True)
+
 
 for var in global_vars:
     print(var)

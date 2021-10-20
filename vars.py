@@ -40,7 +40,6 @@ def remove_var(name):
             del global_vars[i]
             return
         i += 1
-    PyscriptNameError("")
 
 
 def index_set_var(name, value, indices):
