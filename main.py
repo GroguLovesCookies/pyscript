@@ -8,15 +8,15 @@ import sys
 FLAG_TERMINATE = "TERMINATE_LOOP"
 
 
-def find_chunk(line_i, file_lines):
-    line_num = line_i
-    chunk = []
-    prev_indentation_value = -1
-    first_indentation_value = -1
+def find_chunk(line_i: int, file_lines: List[str]) -> List[str]:
+    line_num: int = line_i
+    chunk: List[str] = []
+    prev_indentation_value: int = -1
+    first_indentation_value: int = -1
     while line_num < len(file_lines):
-        current_line = file_lines[line_num]
-        expanded_line = current_line.expandtabs().strip("\n")
-        indentation_value = (len(expanded_line) - len(expanded_line.strip(" ")))//4
+        current_line: str = file_lines[line_num]
+        expanded_line: str = current_line.expandtabs().strip("\n")
+        indentation_value: int = (len(expanded_line) - len(expanded_line.strip(" ")))//4
         if prev_indentation_value == -1:
             first_indentation_value = indentation_value
         else:
@@ -34,11 +34,11 @@ def find_chunk(line_i, file_lines):
     return chunk
 
 
-def run(lines, looping=False, original=False, global_line=0):
-    i = 0
-    new_global_line = global_line
+def run(lines: List[str], looping: bool = False, original: bool = False, global_line: int = 0):
+    i: int = 0
+    new_global_line: int = global_line
     while i < len(lines):
-        line = lines[i]
+        line: List[str] = lines[i]
         tokenized, raw, count = read(line.strip("\n").strip())
 
         if len(tokenized) == 0:
@@ -51,13 +51,13 @@ def run(lines, looping=False, original=False, global_line=0):
         if type(parsed) == tuple:
             if type(parsed[0]) == bool:
                 if parsed[1] == "BRANCH":
-                    chunk_a = find_chunk(i, lines)
+                    chunk_a: List[str] = find_chunk(i, lines)
                     if len(chunk_a) == 0:
                         PyscriptIndentationError("Unindented codeblock", True)
                     i += len(chunk_a)+1
                     new_global_line += len(chunk_a)+1
                     if i < len(lines):
-                        line = lines[i]
+                        line: str = lines[i]
                         tokenized, raw, count = read(line.strip("\n").strip())
                         if len(tokenized) > 0:
                             if tokenized[0].val == "else":
@@ -65,15 +65,15 @@ def run(lines, looping=False, original=False, global_line=0):
                                     PyscriptSyntaxError("Missing colon at the end of 'else' statement", True)
                                 if tokenized[-1].type != "COL_END":
                                     PyscriptSyntaxError("Missing colon at the end of 'else' statement", True)
-                                chunk_b = find_chunk(i, lines)
+                                chunk_b: List[str] = find_chunk(i, lines)
                                 if len(chunk_b) == 0:
                                     PyscriptIndentationError("Unindented codeblock", True)
                             else:
-                                chunk_b = ""
+                                chunk_b: str = ""
                         else:
-                            chunk_b = ""
+                            chunk_b: str = ""
                     else:
-                        chunk_b = ""
+                        chunk_b: str = ""
                     if parsed[0]:
                         val = run(chunk_a, looping, global_line=new_global_line-(len(chunk_a)+1))
                         if val == FLAG_TERMINATE:
@@ -98,10 +98,10 @@ def run(lines, looping=False, original=False, global_line=0):
                     global_line += 0 if len(chunk_b) == 0 else len(chunk_b)+1
                     continue
                 elif parsed[1] == "WHILE":
-                    loop_chunk = find_chunk(i, lines)
+                    loop_chunk: List[str] = find_chunk(i, lines)
                     if len(loop_chunk) == 0:
                         PyscriptIndentationError("Unindented codeblock", True)
-                    line_a = i
+                    line_a: int = i
                     if parsed[0]:
                         val = run(loop_chunk, True, global_line=new_global_line)
                         if val == FLAG_TERMINATE:
@@ -136,12 +136,18 @@ def run(lines, looping=False, original=False, global_line=0):
                     new_global_line += 1
                     continue
                 if parsed[1] == "using":
-                    using_chunk = find_chunk(i, lines)
+                    using_chunk: List[str] = find_chunk(i, lines)
                     run(using_chunk, looping=looping)
                     i += len(using_chunk) + 1
                     new_global_line += len(using_chunk) + 1
                     for var_name in parsed[2]:
                         remove_var(var_name)
+                    continue
+                if parsed[1] == "del":
+                    for var_name in parsed[2]:
+                        remove_var(var_name)
+                    i += 1
+                    new_global_line += 1
                     continue
         elif type(parsed) == Label:
             parsed.line = new_global_line
@@ -157,13 +163,13 @@ def run(lines, looping=False, original=False, global_line=0):
         new_global_line += 1
 
 
-filename = "print.pyscript"
+filename: str = "print.pyscript"
 if len(sys.argv) > 1:
-    filename = sys.argv[1]
+    filename: str = sys.argv[1]
 
 
 with open("pyscript/" + filename, "r+") as f:
-    program = []
+    program: List[str] = []
     for l in f:
         program.append(l)
     run(program, original=True)

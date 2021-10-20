@@ -7,4 +7,12 @@ using k:
         k = k - 1
         j = j * 2
 
-l = 2^16
+i = 8
+l = 8
+k = i + l
+
+m = 1
+while k > 0:
+    k = k - 1
+    m = m * 2
+del k, i, l

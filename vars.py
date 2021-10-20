@@ -1,3 +1,6 @@
+from errors import PyscriptNameError
+
+
 global_vars = []
 
 
@@ -35,8 +38,9 @@ def remove_var(name):
     while i < len(global_vars):
         if global_vars[i].name == name:
             del global_vars[i]
-            break
+            return
         i += 1
+    PyscriptNameError("")
 
 
 def index_set_var(name, value, indices):
