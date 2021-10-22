@@ -1,0 +1,15 @@
+using x = 0:
+    local:
+        x = 2
+        local:
+            y = outer outer x + 2 # x from scope two scopes out: x = 0
+            a = outer x + 2 # x from outer scope: x = 2
+            local:
+                b = outer outer outer x + 2 # x from three scopes out: x = 0
+                c = outer outer x + 2 # x from two scopes out: x = 2
+                out b, c
+            out y, a, b, c
+        z = x + 2 # local x: x is 2
+        w = outer x + 2 # outer x: x = 0
+        out z, w, y, a, b, c
+    d = x + 2 # local x: x is 0

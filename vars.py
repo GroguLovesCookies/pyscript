@@ -2,6 +2,8 @@ from errors import PyscriptNameError
 
 
 global_vars = []
+cached = []
+current_scope_pointer = -1
 
 
 class Variable:
@@ -33,13 +35,58 @@ def set_var(name, value, readonly=False):
     return create_var(name, value, readonly)
 
 
+def shift_scope_pointer(i):
+    global current_scope_pointer
+    current_scope_pointer += i
+
+
+def set_scope_pointer(i):
+    global current_scope_pointer
+    current_scope_pointer = i
+
+
+def get_var_from_previous_scope(name):
+    for var in cached[current_scope_pointer]:
+        if var.name == name:
+            set_scope_pointer(-1)
+            return var.value
+    PyscriptNameError(f"variable '{name}' was referenced before assignment", True)
+
+
 def remove_var(name):
     i = 0
     while i < len(global_vars):
         if global_vars[i].name == name:
+            val = global_vars[i]
             del global_vars[i]
-            return
+            return val
         i += 1
+    PyscriptNameError(f"variable '{name}' was referenced before assignment", True)
+
+
+def start_new_scope():
+    cached.append([])
+    for var in global_vars:
+        cached[-1].append(Variable(var.name, var.value, var.readonly))
+    global_vars.clear()
+
+
+def revert_from_scope():
+    global global_vars
+    global_vars.clear()
+    for var in cached[-1]:
+        create_var(var.name, var.value, var.readonly)
+    del cached[-1]
+
+
+def push_to_previous_cache(name):
+    removed = remove_var(name)
+    create_var(removed.name, removed.value, removed.readonly)
+    for var in cached[-1]:
+        if var.name == name:
+            var.value = removed.value
+            return
+    cached[-1].append(removed)
 
 
 def index_set_var(name, value, indices):

@@ -1,10 +1,11 @@
 from tokens import calculate, parse, read
-from vars import global_vars, remove_var
+from vars import *
 from labels import *
 from errors import *
 import sys
 import time
 from typing import List
+from utility_classes.run_data import RunData
 
 
 FLAG_TERMINATE = "TERMINATE_LOOP"
@@ -36,7 +37,9 @@ def find_chunk(line_i: int, file_lines: List[str]) -> List[str]:
     return chunk
 
 
-def run(lines: List[str], looping: bool = False, original: bool = False, global_line: int = 0):
+def run(lines: List[str], running_data: RunData = RunData.default, global_line: int = 0):
+    looping: bool = running_data.looping
+    original: bool = running_data.original
     i: int = 0
     new_global_line: int = global_line
     while i < len(lines):
@@ -77,7 +80,7 @@ def run(lines: List[str], looping: bool = False, original: bool = False, global_
                     else:
                         chunk_b: str = ""
                     if parsed[0]:
-                        val = run(chunk_a, looping, global_line=new_global_line-(len(chunk_a)+1))
+                        val = run(chunk_a, running_data.set_attribute("original", False), global_line=new_global_line-(len(chunk_a)+1))
                         if val == FLAG_TERMINATE:
                             return FLAG_TERMINATE
                         elif type(val) == tuple:
@@ -87,7 +90,7 @@ def run(lines: List[str], looping: bool = False, original: bool = False, global_
                             i = val[1]
                             continue
                     else:
-                        val = run(chunk_b, looping, global_line=new_global_line)
+                        val = run(chunk_b, running_data.set_attribute("original", False), global_line=new_global_line)
                         if val == FLAG_TERMINATE:
                             return FLAG_TERMINATE
                         elif type(val) == tuple:
@@ -105,7 +108,8 @@ def run(lines: List[str], looping: bool = False, original: bool = False, global_
                         PyscriptIndentationError("Unindented codeblock", True)
                     line_a: int = i
                     if parsed[0]:
-                        val = run(loop_chunk, True, global_line=new_global_line)
+                        val = run(loop_chunk, running_data.set_attribute("looping", True)
+                                  .set_attribute("original", False), global_line=new_global_line)
                         if val == FLAG_TERMINATE:
                             return FLAG_TERMINATE
                         elif type(val) == list:
@@ -139,7 +143,7 @@ def run(lines: List[str], looping: bool = False, original: bool = False, global_
                     continue
                 if parsed[1] == "using":
                     using_chunk: List[str] = find_chunk(i, lines)
-                    run(using_chunk, looping=looping)
+                    run(using_chunk, running_data.duplicate(), new_global_line)
                     i += len(using_chunk) + 1
                     new_global_line += len(using_chunk) + 1
                     for var_name in parsed[2]:
@@ -151,6 +155,21 @@ def run(lines: List[str], looping: bool = False, original: bool = False, global_
                     i += 1
                     new_global_line += 1
                     continue
+                if parsed[1] == "local":
+                    start_new_scope()
+                    local_chunk = find_chunk(i, lines)
+                    run(local_chunk)
+                    revert_from_scope()
+                    i += len(local_chunk) + 1
+                    new_global_line += len(local_chunk) + 1
+                    continue
+                if parsed[1] == "out":
+                    for var_name in parsed[2]:
+                        push_to_previous_cache(var_name)
+                    i += 1
+                    new_global_line += 1
+                    continue
+
         elif type(parsed) == Label:
             parsed.line = new_global_line
             parsed.chunk = find_chunk(i, lines)
@@ -183,11 +202,11 @@ with open("pyscript/" + filename, "r+") as f:
         program.append(l)
     if timing:
         start_time = time.time()
-        run(program, original=True)
+        run(program, RunData(False, True))
         elapsed_time = time.time() - start_time
         print(f"Time taken: {elapsed_time}")
     else:
-        run(program, original=True)
+        run(program, RunData(False, True))
 
 
 for var in global_vars:

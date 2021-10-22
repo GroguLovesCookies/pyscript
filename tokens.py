@@ -1,10 +1,11 @@
 # Imports
 from errors import *
-from vars import set_var, global_vars, index_set_var, Variable
+from vars import *
 from labels import *
 from nodes import *
 from range import range_from_to
 from typing import List, Dict, Tuple, Union
+from utility_classes.var_data import VarData
 
 # Define tokens
 TT_PLUS = "PLUS"
@@ -47,6 +48,8 @@ PT_INDEX_ASSIGNMENT = "INDEX_ASSIGN"
 PT_INDEX_REFERENCE = "INDEX_REFERENCE"
 PT_USING_ASSIGN = "USING_ASSIGN"
 PT_USING_REFERENCE = "USING_REFERENCE"
+PT_OUT = "PUSHING_OUT"
+PT_GLOBAL = "GLOBAL"
 
 # Define keywords
 KW_READONLY = "readonly"
@@ -69,10 +72,15 @@ KW_IN = "in"
 KW_NOT_IN = "not in"
 KW_USING = "using"
 KW_DEL = "del"
+KW_LOCAL = "local"
+KW_OUT = "out"
+KW_OUTER = "outer"
+KW_SCOPE_RESOLUTION = "scope_res"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
-                  KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None, KW_USING: TT_KEYWORD, KW_DEL: TT_KEYWORD}
+                  KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None, KW_USING: TT_KEYWORD, KW_DEL: TT_KEYWORD,
+                  KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -81,7 +89,7 @@ types: List[str] = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
 hashable_types: List[str] = [TT_INT, TT_FLOAT, TT_STR, TT_BOOL]
 
 # Define unary operators
-un_ops: List[str] = [KW_NOT]
+un_ops: List[str] = [KW_NOT, KW_OUTER, KW_SCOPE_RESOLUTION]
 
 # Define operator list
 op_chars: List[chr] = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!", ":", ","]
@@ -114,7 +122,7 @@ def prep_unary(tokenized: List[Token]) -> List[Token]:
     insert_number: int = 0
     while i < len(tokenized):
         token: Token = tokenized[i]
-        if token.val == KW_NOT:
+        if token.val in un_ops:
             if start_index < 0:
                 start_index = i
         else:
@@ -384,6 +392,9 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
                             name = True
                         else:
                             name = False
+                    if name == KW_OUTER:
+                        if latest.val == KW_OUTER or latest.val == KW_SCOPE_RESOLUTION:
+                            name = KW_SCOPE_RESOLUTION
                     tokens.append(Token(kw_type, name))
                 else:
                     tokens.append(Token(TT_VAR, name))
@@ -418,7 +429,7 @@ def analyse_tokens(tokenized: List[Token]):
         token = tokenized[i]
         if i < len(tokenized) - 1:
             # Constructions like "8 100" are not allowed
-            if token.type == TT_INT and tokenized[i + 1].type == TT_INT:
+            if token.type == tokenized[i + 1].type and token.type in types:
                 PyscriptSyntaxError("Invalid Syntax", True)
 
 
@@ -450,30 +461,30 @@ def assign_pseudo_types(tokenized: List[Token]):
 
     # Set initial state
     i: int = 0
-    using_flag: bool = False
-    del_flag: bool = False
+    var_data: VarData = VarData.default.duplicate()
 
     # Assignment loop
     while i < len(tokenized):
         token: Token = tokenized[i]
         if token.val == KW_USING:
-            if del_flag:
-                PyscriptSyntaxError("Invalid Syntax", True)
-            using_flag = True
+            var_data.set("is_using", True)
         if token.val == KW_DEL:
-            if using_flag:
-                PyscriptSyntaxError("Invalid Syntax", True)
-            del_flag = True
+            var_data.set("is_del", True)
+        if token.val == KW_OUT:
+            var_data.set("is_out", True)
         if token.type == TT_VAR:
-            pseudo_type, extra_args = check_variable(tokenized, i, using_flag, del_flag)
+            pseudo_type, extra_args = check_variable(tokenized, i, var_data)
             token.pseudo_type = pseudo_type
             token.extra_params = extra_args
         i += 1
 
 
-def check_variable(tokenized: List[Token], i: int, is_using: bool = False, is_del: bool = False) -> Tuple[str, List[int]]:
+def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.default) -> Tuple[str, List[int]]:
     # If it is a variable, it can be either
     # referenced or assigned.
+    is_using = var_data.is_using
+    is_del = var_data.is_del
+    is_out = var_data.is_out
     if i == len(tokenized) - 1:
         # In the construction "foo = bar",
         # "bar" is referenced as it is at
@@ -482,6 +493,8 @@ def check_variable(tokenized: List[Token], i: int, is_using: bool = False, is_de
             return PT_USING_REFERENCE, []
         if is_del:
             return PT_DEL, []
+        if is_out:
+            return PT_OUT, []
         return PT_REFERENCE, []
     elif tokenized[i + 1].type == TT_EQUALS:
         # In the construction "foo = bar",
@@ -490,15 +503,19 @@ def check_variable(tokenized: List[Token], i: int, is_using: bool = False, is_de
         if is_using:
             return PT_USING_ASSIGN, []
         if is_del:
-            PyscriptSyntaxError("Deleting assigned variable")
+            PyscriptSyntaxError("Deleting assigned variable", True)
+        if is_out:
+            PyscriptSyntaxError("Pushing assigned variable", True)
         return PT_ASSIGNMENT, []
+    elif tokenized[i - 1].val == KW_OUTER or tokenized[i - 1].val == KW_SCOPE_RESOLUTION:
+        return PT_GLOBAL, []
     elif tokenized[i - 1].type == TT_EQUALS:
         return PT_REFERENCE, []
     elif tokenized[i + 1].type == TT_INDEX:
         if is_using:
-            PyscriptSyntaxError("Cannot have index in 'using' context")
+            PyscriptSyntaxError("Cannot have index in 'using' context", True)
         if is_del:
-            PyscriptSyntaxError("Cannot delete index with 'del'")
+            PyscriptSyntaxError("Cannot delete index with 'del'", True)
         pseudo_type, extra_parameters = check_variable(tokenized, i + 1)
         return indexed[pseudo_type], [tokenized[i + 1].val, *extra_parameters]
     else:
@@ -509,6 +526,8 @@ def check_variable(tokenized: List[Token], i: int, is_using: bool = False, is_de
             return PT_USING_REFERENCE, []
         if is_del:
             return PT_DEL, []
+        if is_out:
+            return PT_OUT, []
         return PT_REFERENCE, []
 
 
@@ -734,12 +753,13 @@ def pre_parse(tokenized: List[Token]):
 
 
 def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Union[Node, Tuple, Label]:
+    global current_scope_pointer
     pre_parse(tokenized)
     if raw is None:
         raw = tokenized[:]
     result: Node = [tokenized[0]]
 
-    if len(tokenized) == 1 and tokenized[0].type in types:
+    if len(tokenized) == 1 and (tokenized[0].type in types or tokenized[0].pseudo_type == PT_GLOBAL):
         return ValueNode(tokenized[0].val)
 
     i: int = 0
@@ -822,6 +842,15 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 if previous.type not in hashable_types or type(next_token.val) != list:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 result = BinOpNode(previous_node, next_node, "not in", lambda a, b: a not in b)
+            if token.val == KW_OUTER:
+                if type(next_node) != str:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                result = UnOpNode(next_node, "outer", lambda a: get_var_from_previous_scope(a))
+            if token.val == KW_SCOPE_RESOLUTION:
+                if type(next_node) != str:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                shift_scope_pointer(-1)
+                result = next_node
 
         elif token.type == TT_EQUALS:
             if previous is not None:
@@ -912,8 +941,16 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                     if section[0].pseudo_type != PT_DEL:
                         PyscriptSyntaxError("Invalid Syntax", True)
                     var_names.append(section[0].val)
-
                 return None, KW_DEL, var_names
+            if token.val == KW_LOCAL:
+                return None, KW_LOCAL
+            if token.val == KW_OUT:
+                var_names: List[str] = []
+                for section in split_list_by_token(TT_COMMA, TT_COMMA, raw[i + 1 - count:]):
+                    if section[0].pseudo_type != PT_OUT:
+                        PyscriptSyntaxError("Invalid Syntax", True)
+                    var_names.append(section[0].val)
+                return None, KW_OUT, var_names
 
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
