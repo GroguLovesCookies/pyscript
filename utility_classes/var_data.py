@@ -1,18 +1,21 @@
 from utility_classes import utility_class
 from errors import PyscriptSyntaxError
+from typing import List
 
 
 class VarData(utility_class.UtilityClass):
-    default_values = [False, False, False]
+    default_values = [False, False, False, False, []]
 
-    def __init__(self, is_del: bool, is_using: bool, is_out: bool):
+    def __init__(self, is_del: bool, is_using: bool, is_out: bool, is_for: bool, seen_vars: List):
         self.is_del: bool = is_del
         self.is_using: bool = is_using
         self.is_out = is_out
+        self.is_for = is_for
+        self.seen_vars = seen_vars
         self.check_errors()
 
     def check_errors(self):
-        all_flags: List[bool] = [self.is_using, self.is_del, self.is_out]
+        all_flags: List[bool] = [self.is_using, self.is_del, self.is_out, self.is_for]
         seen_true: bool = False
         for flag in all_flags:
             if flag:

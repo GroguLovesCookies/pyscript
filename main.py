@@ -169,6 +169,23 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                     i += 1
                     new_global_line += 1
                     continue
+                if parsed[1] == "for":
+                    for_chunk = find_chunk(i, lines)
+                    condition = parsed[2]
+                    update = parsed[3]
+                    while True:
+                        temp_condition = condition[:]
+                        continuation = calculate(parse(condition))
+                        if not continuation:
+                            break
+                        condition = temp_condition[:]
+                        run(for_chunk, running_data.set_attribute("looping", True).set_attribute("original", False), new_global_line)
+                        temp = update[:]
+                        calculate(parse(update))
+                        update = temp[:]
+                    i += len(for_chunk) + 1
+                    new_global_line += len(for_chunk) + 1
+                    continue
 
         elif type(parsed) == Label:
             parsed.line = new_global_line

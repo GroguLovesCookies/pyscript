@@ -34,7 +34,7 @@ class SortedList:
             return high+1
 
     def binary_search(self, low, high, val):
-        if low <= high and self.array[low] <= val <= self.array[high]:
+        if low < high and self.array[low] <= val <= self.array[high]:
             pos = low + (high-low)//2
             if self.array[pos] == val:
                 return pos
@@ -42,10 +42,13 @@ class SortedList:
                 return self.binary_search(pos+1, high, val)
             else:
                 return self.binary_search(low, pos-1, val)
+        if low == high:
+            if self.array[low] == val:
+                return low
         return -1
 
     def interpolation_search(self, low, high, val):
-        if low <= high and self.array[low] <= val <= self.array[high]:
+        if low < high and self.array[low] <= val <= self.array[high]:
             pos = low + (((-(self.array[low]-val)) * (high - low)) // (self.array[high] - self.array[low]))
             if self.array[pos] == val:
                 return pos
@@ -53,6 +56,9 @@ class SortedList:
                 return self.interpolation_search(pos+1, high, val)
             else:
                 return self.interpolation_search(low, pos-1, val)
+        if low == high:
+            if self.array[low] == val:
+                return low
         return -1
 
     def __getitem__(self, item):

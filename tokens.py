@@ -39,6 +39,7 @@ TT_INDEX = "INDEX"
 TT_WHILE = "WHILE"
 TT_COMMA = "COMMA"
 TT_COLON_END = "COL_END"
+TT_SEMICOLON = "SEMICOLON"
 
 # Define pseudo-types
 PT_ASSIGNMENT = "ASSIGNING"
@@ -76,11 +77,12 @@ KW_LOCAL = "local"
 KW_OUT = "out"
 KW_OUTER = "outer"
 KW_SCOPE_RESOLUTION = "scope_res"
+KW_FOR = "for"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
                   KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None, KW_USING: TT_KEYWORD, KW_DEL: TT_KEYWORD,
-                  KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None}
+                  KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None, KW_FOR: TT_KEYWORD}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -92,7 +94,7 @@ hashable_types: List[str] = [TT_INT, TT_FLOAT, TT_STR, TT_BOOL]
 un_ops: List[str] = [KW_NOT, KW_OUTER, KW_SCOPE_RESOLUTION]
 
 # Define operator list
-op_chars: List[chr] = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!", ":", ","]
+op_chars: List[chr] = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!", ":", ",", ";"]
 
 # Define indexed versions of un-indexed pseudo-types
 indexed: Dict[str, str] = {PT_ASSIGNMENT: PT_INDEX_ASSIGNMENT, PT_REFERENCE: PT_INDEX_REFERENCE,
@@ -294,6 +296,8 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
                     tokens.append(Token(TT_EQUALS, TT_EQUALS))
                 elif op == ",":
                     tokens.append(Token(TT_COMMA, TT_COMMA))
+                elif op == ";":
+                    tokens.append(Token(TT_SEMICOLON, TT_SEMICOLON))
                 else:
                     PyscriptSyntaxError("Invalid Syntax", True)
 
@@ -472,6 +476,8 @@ def assign_pseudo_types(tokenized: List[Token]):
             var_data.set("is_del", True)
         if token.val == KW_OUT:
             var_data.set("is_out", True)
+        if token.val == KW_FOR:
+            var_data.set("is_for", True)
         if token.type == TT_VAR:
             pseudo_type, extra_args = check_variable(tokenized, i, var_data)
             token.pseudo_type = pseudo_type
@@ -485,6 +491,7 @@ def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.d
     is_using = var_data.is_using
     is_del = var_data.is_del
     is_out = var_data.is_out
+    is_for = var_data.is_for
     if i == len(tokenized) - 1:
         # In the construction "foo = bar",
         # "bar" is referenced as it is at
@@ -506,6 +513,8 @@ def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.d
             PyscriptSyntaxError("Deleting assigned variable", True)
         if is_out:
             PyscriptSyntaxError("Pushing assigned variable", True)
+        if is_for:
+            set_var(tokenized[i].val, 0)
         return PT_ASSIGNMENT, []
     elif tokenized[i - 1].val == KW_OUTER or tokenized[i - 1].val == KW_SCOPE_RESOLUTION:
         return PT_GLOBAL, []
@@ -951,6 +960,24 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                         PyscriptSyntaxError("Invalid Syntax", True)
                     var_names.append(section[0].val)
                 return None, KW_OUT, var_names
+            if token.val == KW_FOR:
+                if raw[-1].val != TT_RANGE_TO:
+                    PyscriptSyntaxError("Missing colon after 'for' loop", True)
+                sections: List[List[Token]] = split_list_by_token(TT_SEMICOLON, TT_SEMICOLON, raw[i + 1 - count:len(raw)-1])
+                if len(sections) != 3:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                assignment: List[Token] = sections[0]
+                condition: List[Token] = sections[1]
+                update: List[Token] = sections[2]
+                bracketized: List[Token] = prep_unary(assignment)
+                bracketized, unused = bracketize(bracketized)
+                bracketized = unwrap_unary(bracketized)
+                calculate(parse(bracketized))
+                bracketized: List[Token] = prep_unary(condition)
+                bracketized, unused = bracketize(bracketized)
+                bracketized = unwrap_unary(bracketized)
+                if calculate(parse(bracketized)):
+                    return None, KW_FOR, condition, update
 
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
