@@ -14,6 +14,7 @@ TT_MUL = "MUL"
 TT_DIV = "DIV"
 TT_POWER = "POWER"
 TT_MODULO = "MOD"
+TT_FLOOR_DIV = "FLOOR_DIV"
 TT_RANGE_TO = "RANGE_TO"
 TT_RANGE_THROUGH = "RANGE_THROUGH"
 TT_GREATER = "GREATER_THAN"
@@ -298,8 +299,11 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
                     tokens.append(Token(TT_COMMA, TT_COMMA))
                 elif op == ";":
                     tokens.append(Token(TT_SEMICOLON, TT_SEMICOLON))
+                elif op == "//":
+                    tokens.append(Token(None, TT_FLOOR_DIV))
                 else:
                     PyscriptSyntaxError("Invalid Syntax", True)
+                continue
 
             # Bracket checks
             elif char == "(":
@@ -478,6 +482,8 @@ def assign_pseudo_types(tokenized: List[Token]):
             var_data.set("is_out", True)
         if token.val == KW_FOR:
             var_data.set("is_for", True)
+        if token.val == TT_SEMICOLON:
+            var_data.set("is_for", False)
         if token.type == TT_VAR:
             pseudo_type, extra_args = check_variable(tokenized, i, var_data)
             token.pseudo_type = pseudo_type
@@ -519,7 +525,10 @@ def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.d
     elif tokenized[i - 1].val == KW_OUTER or tokenized[i - 1].val == KW_SCOPE_RESOLUTION:
         return PT_GLOBAL, []
     elif tokenized[i - 1].type == TT_EQUALS:
-        return PT_REFERENCE, []
+        if tokenized[i+1].type != TT_INDEX:
+            return PT_REFERENCE, []
+        pseudo_type, extra_parameters = check_variable(tokenized, i + 1)
+        return PT_INDEX_REFERENCE, [tokenized[i+1].val, *extra_parameters]
     elif tokenized[i + 1].type == TT_INDEX:
         if is_using:
             PyscriptSyntaxError("Cannot have index in 'using' context", True)
@@ -815,6 +824,8 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 result = BinOpNode(previous_node, next_node, "^", lambda a, b: a ** b)
             elif token.val == TT_MODULO:
                 result = BinOpNode(previous_node, next_node, "%", lambda a, b: a % b)
+            elif token.val == TT_FLOOR_DIV:
+                result = BinOpNode(previous_node, next_node, "//", lambda a, b: a // b)
 
             elif token.val == TT_RANGE_TO:
                 result = BinOpNode(previous_node, next_node, ":", lambda a, b: range_from_to(a, b))
@@ -966,17 +977,23 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 sections: List[List[Token]] = split_list_by_token(TT_SEMICOLON, TT_SEMICOLON, raw[i + 1 - count:len(raw)-1])
                 if len(sections) != 3:
                     PyscriptSyntaxError("Invalid Syntax", True)
-                assignment: List[Token] = sections[0]
+                assignment: List[List[Token]] = split_list_by_token(TT_COMMA, TT_COMMA, sections[0])
                 condition: List[Token] = sections[1]
-                update: List[Token] = sections[2]
-                bracketized: List[Token] = prep_unary(assignment)
-                bracketized, unused = bracketize(bracketized)
-                bracketized = unwrap_unary(bracketized)
-                calculate(parse(bracketized))
-                bracketized: List[Token] = prep_unary(condition)
-                bracketized, unused = bracketize(bracketized)
-                bracketized = unwrap_unary(bracketized)
-                if calculate(parse(bracketized)):
+                update: List[List[Token]] = split_list_by_token(TT_COMMA, TT_COMMA, sections[2])
+                if len(assignment[0]) > 0:
+                    for expr in assignment:
+                        bracketized: List[Token] = prep_unary(expr)
+                        bracketized, unused = bracketize(bracketized)
+                        bracketized = unwrap_unary(bracketized)
+                        calculate(parse(bracketized))
+                if len(condition) == 0:
+                    start = True
+                else:
+                    bracketized: List[Token] = prep_unary(condition)
+                    bracketized, unused = bracketize(bracketized)
+                    bracketized = unwrap_unary(bracketized)
+                    start = calculate(parse(bracketized))
+                if start:
                     return None, KW_FOR, condition, update
 
         elif token.type == TT_BRANCH:

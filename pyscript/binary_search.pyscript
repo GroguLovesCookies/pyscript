@@ -1,0 +1,12 @@
+items = 1::100
+
+item_to_search = 23
+using high = 99, low = 0:
+    pos = (high-low)//2
+    while (items[pos] != item_to_search) and (low < high):
+        if items[pos] < item_to_search:
+            low = pos+1
+            pos = low + ((high-low)//2)
+        if items[pos] > item_to_search:
+            high = pos-1
+            pos = low + ((high-low)//2)

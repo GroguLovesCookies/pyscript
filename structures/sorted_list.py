@@ -85,5 +85,8 @@ class SortedList:
     def __len__(self):
         return len(self.array)
 
+    def __repr__(self):
+        return repr(self.array)
+
     def clear(self):
         self.array.clear()

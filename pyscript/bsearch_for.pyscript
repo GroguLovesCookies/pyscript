@@ -1,0 +1,11 @@
+items = 1::100
+
+item_to_search = 900
+using high = 99, low = 0:
+    pos = (high-low)//2
+    for ; (items[pos] != item_to_search) and (high > low); pos = low+((high-low)//2):
+        if items[pos] < item_to_search:
+            low = pos + 1
+        else:
+            high = pos - 1
+    pos = pos+1

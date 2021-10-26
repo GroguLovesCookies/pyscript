@@ -2,4 +2,6 @@ total_loops = 0
 j = 5
 while j > 0:
     j = j-1
+    if j == 3:
+        continue
     total_loops = total_loops + 1
