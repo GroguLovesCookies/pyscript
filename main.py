@@ -37,7 +37,7 @@ def find_chunk(line_i: int, file_lines: List[str]) -> List[str]:
     return chunk
 
 
-def run(lines: List[str], running_data: RunData = RunData.default, global_line: int = 0, is_loop: bool = False):
+def run(lines: List[str], running_data: RunData = RunData.default, global_line: int = 0):
     looping: bool = running_data.looping
     original: bool = running_data.original
     i: int = 0
@@ -230,6 +230,13 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                             temp = update_expr[:]
                             calculate(parse(update_expr))
                             update[index] = temp[:]
+                    continue
+                if parsed[1] == "func":
+                    variable = get_var(parsed[2].name)
+                    variable.extra_args = [find_chunk(i, lines), *parsed[3]]
+                    variable.run_func = run
+                    i += len(variable.extra_args[0]) + 1
+                    new_global_line += len(variable.extra_args[0]) + 1
                     continue
 
         elif type(parsed) == Label:

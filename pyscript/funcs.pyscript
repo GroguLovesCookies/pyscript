@@ -1,0 +1,12 @@
+func a, b -> add:
+    c = a + b
+    out c
+
+
+func a, b, c -> sub:
+    d = a - b
+    out d
+
+
+add(1, 2)
+sub(105, 12)

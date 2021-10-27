@@ -19,7 +19,7 @@ class SortedList:
 
     def find_add(self, val, low, high):
         if self.array[low] < val < self.array[high]:
-            pos = low + (((val - self.array[low]) * (high - low)) // (self.array[high] - self.array[low]))
+            pos = low + (high-low)//2
             if self.array[pos] <= val <= self.array[pos+1]:
                 return pos+1
             if self.array[pos-1] <= val <= self.array[pos]:

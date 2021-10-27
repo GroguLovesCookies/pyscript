@@ -1,4 +1,4 @@
-from errors import PyscriptNameError
+from errors import PyscriptNameError, PyscriptSyntaxError
 from structures.sorted_list import SortedList
 import time
 
@@ -9,14 +9,19 @@ current_scope_pointer = -1
 current_var = None
 current_index = -1
 # 0: linear, 1: binary, 2: interpolation
-search_mode = 2
+search_mode = 0
 
 
 class Variable:
-    def __init__(self, name, value, readonly=False):
+    def __init__(self, name, value, readonly=False, is_callable=False, extra_args=None, run_func=None):
+        if extra_args is None:
+            extra_args = []
         self.value = value
         self.name = name
         self.readonly = readonly
+        self.is_callable = is_callable
+        self.extra_args = extra_args
+        self.run_func = run_func
         self.name_val = 0
         for letter in self.name:
             self.name_val += ord(letter)
@@ -59,12 +64,18 @@ class Variable:
 
     def __sub__(self, other):
         if type(other) == Variable:
-            op_val = other.name_val
-        elif type(other) == str:
-            op_val = 0
-            for letter in other:
-                op_val += ord(letter)
-        return self.name_val - op_val
+            op_val = other.name
+        if type(other) == str:
+            op_val = other
+        if len(op_val) > len(self.name):
+            return ord(op_val[len(self.name)])
+        elif len(op_val) < len(self.name):
+            return -ord(self.name[len(op_val)])
+        else:
+            for i, letter in enumerate(op_val):
+                if letter != self.name[i]:
+                    return ord(self.name[i])-ord(letter)
+            return 0
 
     def __mul__(self, other):
         if type(other) == Variable:
@@ -75,10 +86,28 @@ class Variable:
                 op_val += ord(letter)
         return self.name_val * op_val
 
+    def run(self, kwargs):
+        if not self.is_callable:
+            PyscriptSyntaxError(f"Variable {self.name} is not callable", True)
+        start_new_scope()
+        for var, value in kwargs.items():
+            create_var(var, value, False)
+        r_value = self.run_func(self.extra_args[0])
+        revert_from_scope()
+        return r_value
 
-def create_var(name, value, readonly=False):
-    global_vars.append(Variable(name, value, readonly))
-    return global_vars[-1].value
+
+def create_var(name, value, readonly=False, is_callable=False, extra_args=None, run_func=None):
+    if extra_args is None:
+        extra_args = []
+    var = Variable(name, value, readonly, is_callable, extra_args, run_func)
+    global_vars.append(var)
+    return var.value, var
+
+
+def get_var(name):
+    search_for_var(name)
+    return current_var
 
 
 def search_for_var(name):
@@ -147,7 +176,7 @@ def remove_var(name):
 def start_new_scope():
     cached.append(SortedList())
     for var in global_vars:
-        cached[-1].append(Variable(var.name, var.value, var.readonly))
+        cached[-1].append(Variable(var.name, var.value, var.readonly, var.is_callable, var.extra_args, var.run_func))
     global_vars.clear()
 
 
@@ -155,13 +184,13 @@ def revert_from_scope():
     global global_vars
     global_vars.clear()
     for var in cached[-1]:
-        create_var(var.name, var.value, var.readonly)
+        create_var(var.name, var.value, var.readonly, var.is_callable, var.extra_args, var.run_func)
     del cached[-1]
 
 
 def push_to_previous_cache(name):
     removed = remove_var(name)
-    create_var(removed.name, removed.value, removed.readonly)
+    create_var(removed.name, removed.value, removed.readonly, removed.is_callable, removed.extra_args, removed.run_func)
     if search_mode == 0:
         for var in cached[-1]:
             if var.name == name:

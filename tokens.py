@@ -41,6 +41,7 @@ TT_WHILE = "WHILE"
 TT_COMMA = "COMMA"
 TT_COLON_END = "COL_END"
 TT_SEMICOLON = "SEMICOLON"
+TT_INSERTION = "INSERTION"
 
 # Define pseudo-types
 PT_ASSIGNMENT = "ASSIGNING"
@@ -52,6 +53,8 @@ PT_USING_ASSIGN = "USING_ASSIGN"
 PT_USING_REFERENCE = "USING_REFERENCE"
 PT_OUT = "PUSHING_OUT"
 PT_GLOBAL = "GLOBAL"
+PT_ARGUMENT = "ARG"
+PT_CALLED = "CALLED"
 
 # Define keywords
 KW_READONLY = "readonly"
@@ -79,11 +82,12 @@ KW_OUT = "out"
 KW_OUTER = "outer"
 KW_SCOPE_RESOLUTION = "scope_res"
 KW_FOR = "for"
+KW_FUNC = "func"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
                   KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None, KW_USING: TT_KEYWORD, KW_DEL: TT_KEYWORD,
-                  KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None, KW_FOR: TT_KEYWORD}
+                  KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None, KW_FOR: TT_KEYWORD, KW_FUNC: TT_KEYWORD}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -93,6 +97,8 @@ hashable_types: List[str] = [TT_INT, TT_FLOAT, TT_STR, TT_BOOL]
 
 # Define unary operators
 un_ops: List[str] = [KW_NOT, KW_OUTER, KW_SCOPE_RESOLUTION]
+
+funcs: List[str] = []
 
 # Define operator list
 op_chars: List[chr] = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!", ":", ",", ";"]
@@ -226,11 +232,11 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
                     analyse_tokens(tokens)
                 tokens = compound_operators(tokens)
                 raw: List[Token] = tokens[:]
+                assign_pseudo_types(tokens)
+                assign_pseudo_types(raw)
                 tokens = prep_unary(tokens)
                 tokens, count = bracketize(tokens)
                 tokens = unwrap_unary(tokens)
-                assign_pseudo_types(tokens)
-                assign_pseudo_types(raw)
                 tokens = remove_index_tokens(tokens)
                 raw = remove_index_tokens(raw)
                 return tokens, raw, count
@@ -301,6 +307,8 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
                     tokens.append(Token(TT_SEMICOLON, TT_SEMICOLON))
                 elif op == "//":
                     tokens.append(Token(None, TT_FLOOR_DIV))
+                elif op == "->":
+                    tokens.append(Token(TT_INSERTION, TT_INSERTION))
                 else:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 continue
@@ -484,8 +492,12 @@ def assign_pseudo_types(tokenized: List[Token]):
             var_data.set("is_for", True)
         if token.val == TT_SEMICOLON:
             var_data.set("is_for", False)
+        if token.val == KW_FUNC:
+            var_data.set("is_func", True)
         if token.type == TT_VAR:
             pseudo_type, extra_args = check_variable(tokenized, i, var_data)
+            if pseudo_type == PT_CALLED:
+                token.type = None
             token.pseudo_type = pseudo_type
             token.extra_params = extra_args
         i += 1
@@ -498,6 +510,7 @@ def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.d
     is_del = var_data.is_del
     is_out = var_data.is_out
     is_for = var_data.is_for
+    is_func = var_data.is_func
     if i == len(tokenized) - 1:
         # In the construction "foo = bar",
         # "bar" is referenced as it is at
@@ -508,6 +521,8 @@ def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.d
             return PT_DEL, []
         if is_out:
             return PT_OUT, []
+        if is_func:
+            return PT_ARGUMENT, []
         return PT_REFERENCE, []
     elif tokenized[i + 1].type == TT_EQUALS:
         # In the construction "foo = bar",
@@ -521,6 +536,8 @@ def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.d
             PyscriptSyntaxError("Pushing assigned variable", True)
         if is_for:
             set_var(tokenized[i].val, 0)
+        if is_func:
+            PyscriptSyntaxError("Invalid Syntax", True) # Default argument values come later
         return PT_ASSIGNMENT, []
     elif tokenized[i - 1].val == KW_OUTER or tokenized[i - 1].val == KW_SCOPE_RESOLUTION:
         return PT_GLOBAL, []
@@ -534,6 +551,8 @@ def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.d
             PyscriptSyntaxError("Cannot have index in 'using' context", True)
         if is_del:
             PyscriptSyntaxError("Cannot delete index with 'del'", True)
+        if is_func:
+            PyscriptSyntaxError("Invalid Syntax", True)
         pseudo_type, extra_parameters = check_variable(tokenized, i + 1)
         return indexed[pseudo_type], [tokenized[i + 1].val, *extra_parameters]
     else:
@@ -546,6 +565,10 @@ def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.d
             return PT_DEL, []
         if is_out:
             return PT_OUT, []
+        if is_func:
+            return PT_ARGUMENT, []
+        if tokenized[i+1].val == TT_LPAREN:
+            return PT_CALLED, [bracket_extract(tokenized[i+1:])]
         return PT_REFERENCE, []
 
 
@@ -771,7 +794,6 @@ def pre_parse(tokenized: List[Token]):
 
 
 def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Union[Node, Tuple, Label]:
-    global current_scope_pointer
     pre_parse(tokenized)
     if raw is None:
         raw = tokenized[:]
@@ -871,6 +893,16 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                     PyscriptSyntaxError("Invalid Syntax", True)
                 shift_scope_pointer(-1)
                 result = next_node
+            if token.val in funcs:
+                func_to_run = get_var(token.val)
+                args_dict = {}
+                arg_count = len(func_to_run.extra_args)-1
+                for i, arg in enumerate(split_list_by_token(TT_COMMA, TT_COMMA, token.extra_params[0])):
+                    args_dict[func_to_run.extra_args[i+1]] = calculate(parse(arg))
+                if len(args_dict) != arg_count:
+                    PyscriptSyntaxError(f"Function '{func_to_run.name}' expects {arg_count} arguments but {len(args_dict)} were "
+                                        f"given", True)
+                result = UnOpNode(func_to_run, "run", lambda a: a.run(args_dict))
 
         elif token.type == TT_EQUALS:
             if previous is not None:
@@ -995,6 +1027,24 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                     start = calculate(parse(bracketized))
                 if start:
                     return None, KW_FOR, condition, update
+            if token.val == KW_FUNC:
+                if raw[-1].type != TT_COLON_END:
+                    PyscriptSyntaxError("Missing colon after 'func' definition", True)
+                definition: List[Token] = raw[i+1-count:len(raw)-1]
+                sections: List[List[Token]] = split_list_by_token(TT_INSERTION, TT_INSERTION, definition)
+                argument_section: List[List[Token]] = split_list_by_token(TT_COMMA, TT_COMMA, sections[0])
+                name: List[Token] = sections[1]
+                if len(name) != 1:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                func: Variable = create_var(name[0].val, 0, True, True)[-1]
+                args = []
+                for var in argument_section:
+                    if len(var) != 1:
+                        PyscriptSyntaxError("Invalid Syntax", True)
+                    args.append(var[0].val)
+                un_ops.append(func.name)
+                funcs.append(func.name)
+                return None, KW_FUNC, func, args
 
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
@@ -1024,4 +1074,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
 
 
 def calculate(node: Node):
-    return node.get_value()
+    try:
+        return node.get_value()
+    except AttributeError:
+        PyscriptSyntaxError("Invalid Syntax", True)
