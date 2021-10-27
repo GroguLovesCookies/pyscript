@@ -3,7 +3,7 @@ func a, b -> add:
     out c
 
 
-func a, b, c -> sub:
+func a, b -> sub:
     d = a - b
     out d
 

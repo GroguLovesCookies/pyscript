@@ -90,11 +90,20 @@ class Variable:
         if not self.is_callable:
             PyscriptSyntaxError(f"Variable {self.name} is not callable", True)
         start_new_scope()
-        for var, value in kwargs.items():
-            create_var(var, value, False)
-        r_value = self.run_func(self.extra_args[0])
-        revert_from_scope()
-        return r_value
+        if self.run_func != exec:
+            for var, value in kwargs.items():
+                create_var(var, value, False)
+            r_value = self.run_func(self.extra_args[0])
+            revert_from_scope()
+            return r_value
+        else:
+            for var, value in kwargs.items():
+                if type(value) != str:
+                    self.extra_args[0].insert(0, f'{var} = {value}')
+                else:
+                    self.extra_args[0].insert(0, f'{var} = "{value}"')
+                self.run_func(";".join(self.extra_args[0]))
+                revert_from_scope()
 
 
 def create_var(name, value, readonly=False, is_callable=False, extra_args=None, run_func=None):

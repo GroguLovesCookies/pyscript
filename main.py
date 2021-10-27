@@ -6,6 +6,8 @@ import sys
 import time
 from typing import List
 from utility_classes.run_data import RunData
+import os
+
 
 FLAG_TERMINATE = "TERMINATE_LOOP"
 FLAG_CONTINUE = "CONTINUE_ITER"
@@ -238,6 +240,21 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                     i += len(variable.extra_args[0]) + 1
                     new_global_line += len(variable.extra_args[0]) + 1
                     continue
+                if parsed[1] == "extern":
+                    if os.path.exists(os.path.join("pyscript/", parsed[4])):
+                        with open(os.path.join("pyscript/", parsed[4])) as file:
+                            py_program = file.read().split("\n")
+                            for j, py_line in enumerate(py_program):
+                                if py_line.startswith("def"):
+                                    name = read(py_line)[1][1]
+                                    if name.val == parsed[2]:
+                                        chunk = find_chunk(j, py_program)
+                                        for k, line in enumerate(chunk):
+                                            chunk[k] = line.strip(" ").strip("\t")
+                                        create_var(name.val, 0, True, True, [chunk, *parsed[3]], exec)
+                    i += 1
+                    new_global_line += 1
+                    continue
 
         elif type(parsed) == Label:
             parsed.line = new_global_line
@@ -277,4 +294,5 @@ with open("pyscript/" + filename, "r+") as f:
         run(program, RunData(False, True))
 
 for var in global_vars:
-    print(var)
+    if not var.is_callable:
+        print(var)
