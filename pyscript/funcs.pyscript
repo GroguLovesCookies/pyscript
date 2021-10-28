@@ -1,12 +1,23 @@
 func a, b -> add:
     c = a + b
-    out c
+    return c
 
 
 func a, b -> sub:
     d = a - b
-    out d
+    return d
 
 
-add(1, 2)
-sub(105, 12)
+func a, b -> cmp:
+    if a < b:
+        return -1
+    if a == b:
+        return 0
+    if a > b:
+        return 1
+
+
+extern "print.py" func val -> output
+
+
+output(cmp(10, 1))

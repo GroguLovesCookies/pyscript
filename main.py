@@ -89,10 +89,11 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                         elif val == FLAG_CONTINUE:
                             return FLAG_CONTINUE
                         elif type(val) == tuple:
-                            if not original:
-                                return val
-                            new_global_line += val[1] - i
-                            i = val[1]
+                            if val[0] == "jump":
+                                new_global_line += val[1] - i
+                                i = val[1]
+                            elif val[0] == "return":
+                                return val[1]
                             continue
                     else:
                         val = run(chunk_b, running_data.set_attribute("original", False), global_line=new_global_line)
@@ -103,8 +104,11 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                         elif type(val) == tuple:
                             if not original:
                                 return val
-                            new_global_line += val[1] - i
-                            i = val[1]
+                            if val[0] == "jump":
+                                new_global_line += val[1] - i
+                                i = val[1]
+                            elif val[0] == "return":
+                                return val[1]
                             continue
                     i += 0 if len(chunk_b) == 0 else len(chunk_b) + 1
                     global_line += 0 if len(chunk_b) == 0 else len(chunk_b) + 1
@@ -124,11 +128,11 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                             i = line_a
                             continue
                         elif type(val) == list:
-                            if not original:
-                                return val
-                            new_global_line += val[1] - i
-                            i = val[1]
-                            continue
+                            if val[0] == "jump":
+                                new_global_line += val[1] - i
+                                i = val[1]
+                            elif val[0] == "return":
+                                return val[1]
                         new_global_line += line_a - i
                         i = line_a
                     else:
@@ -189,9 +193,11 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                     local_chunk = find_chunk(i, lines)
                     val = run(local_chunk)
                     if type(val) == list:
-                        if not original:
-                            revert_from_scope()
-                            return val
+                        if val[0] == "jump":
+                            new_global_line += val[1] - i
+                            i = val[1]
+                        elif val[0] == "return":
+                            return val[1]
                     revert_from_scope()
                     i += len(local_chunk) + 1
                     new_global_line += len(local_chunk) + 1
@@ -241,6 +247,8 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                     new_global_line += len(variable.extra_args[0]) + 1
                     continue
                 if parsed[1] == "extern":
+                    if os.path.splitext(parsed[4])[1] != ".py":
+                        PyscriptSyntaxError("Extern functions must include .py extension", True)
                     if os.path.exists(os.path.join("pyscript/", parsed[4])):
                         with open(os.path.join("pyscript/", parsed[4])) as file:
                             py_program = file.read().split("\n")
@@ -255,6 +263,8 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                     i += 1
                     new_global_line += 1
                     continue
+                if parsed[1] == "return":
+                    return "return", parsed[2]
 
         elif type(parsed) == Label:
             parsed.line = new_global_line

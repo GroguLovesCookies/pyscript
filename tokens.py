@@ -6,7 +6,6 @@ from nodes import *
 from range import range_from_to
 from typing import List, Dict, Tuple, Union
 from utility_classes.var_data import VarData
-import os
 
 # Define tokens
 TT_PLUS = "PLUS"
@@ -85,12 +84,13 @@ KW_SCOPE_RESOLUTION = "scope_res"
 KW_FOR = "for"
 KW_FUNC = "func"
 KW_EXTERN = "extern"
+KW_RETURN = "return"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
                   KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None, KW_USING: TT_KEYWORD, KW_DEL: TT_KEYWORD,
                   KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None, KW_FOR: TT_KEYWORD, KW_FUNC: TT_KEYWORD,
-                  KW_EXTERN: TT_KEYWORD}
+                  KW_EXTERN: TT_KEYWORD, KW_RETURN: TT_KEYWORD}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -146,7 +146,7 @@ def prep_unary(tokenized: List[Token]) -> List[Token]:
             elif start_index >= 0:
                 change: int = insert_number
                 if insert_number > 0:
-                    change = insert_number - 1
+                    change -= 1
                 thing: List[Token] = tokenized[start_index: i + 1 - change]
                 del tokenized[start_index: i - change]
                 i -= len(thing) - 1
@@ -266,7 +266,7 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
 
                     # If the latest is an operator or an opening
                     # bracket, it is a negative sign, not operator
-                    elif latest.type is None or latest.val == TT_LPAREN or latest.type == TT_EQUALS:
+                    elif latest.type is None or latest.val in [TT_LPAREN, KW_RETURN] or latest.type == TT_EQUALS:
                         multiplier = -1
 
                     # If you get here, it is an operator
@@ -540,15 +540,17 @@ def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.d
         if is_for:
             set_var(tokenized[i].val, 0)
         if is_func:
-            PyscriptSyntaxError("Invalid Syntax", True) # Default argument values come later
+            PyscriptSyntaxError("Invalid Syntax", True)  # Default argument values come later
         return PT_ASSIGNMENT, []
     elif tokenized[i - 1].val == KW_OUTER or tokenized[i - 1].val == KW_SCOPE_RESOLUTION:
         return PT_GLOBAL, []
     elif tokenized[i - 1].type == TT_EQUALS:
-        if tokenized[i+1].type != TT_INDEX:
+        if tokenized[i + 1].type != TT_INDEX:
+            if tokenized[i + 1].val == TT_LPAREN:
+                return PT_CALLED, [bracket_extract(tokenized[i + 1:])]
             return PT_REFERENCE, []
         pseudo_type, extra_parameters = check_variable(tokenized, i + 1)
-        return PT_INDEX_REFERENCE, [tokenized[i+1].val, *extra_parameters]
+        return PT_INDEX_REFERENCE, [tokenized[i + 1].val, *extra_parameters]
     elif tokenized[i + 1].type == TT_INDEX:
         if is_using:
             PyscriptSyntaxError("Cannot have index in 'using' context", True)
@@ -570,8 +572,8 @@ def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.d
             return PT_OUT, []
         if is_func:
             return PT_ARGUMENT, []
-        if tokenized[i+1].val == TT_LPAREN:
-            return PT_CALLED, [bracket_extract(tokenized[i+1:])]
+        if tokenized[i + 1].val == TT_LPAREN:
+            return PT_CALLED, [bracket_extract(tokenized[i + 1:])]
         return PT_REFERENCE, []
 
 
@@ -725,12 +727,21 @@ def get_closing_text(expr: str, opening: chr = "(", closing: chr = ")") -> int:
 def split_list_by_token(tok_type: str, tok_val, tokenized: List[Token]) -> List[List[Token]]:
     splitted: List[List[Token]] = []
     current_split: List[Token] = []
-    for token in tokenized:
+    i = 0
+    while i < len(tokenized):
+        token = tokenized[i]
         if token.type == tok_type and token.val == tok_val:
             splitted.append(current_split)
             current_split = []
+            i += 1
+            continue
+        if token.val == TT_LPAREN:
+            current_split.append(token)
+            current_split.extend(bracket_extract(tokenized[i:]))
+            i += get_closing(tokenized[i:])
             continue
         current_split.append(token)
+        i += 1
     splitted.append(current_split)
     return splitted
 
@@ -899,12 +910,13 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
             if token.val in funcs:
                 func_to_run = get_var(token.val)
                 args_dict = {}
-                arg_count = len(func_to_run.extra_args)-1
-                for i, arg in enumerate(split_list_by_token(TT_COMMA, TT_COMMA, token.extra_params[0])):
-                    args_dict[func_to_run.extra_args[i+1]] = calculate(parse(arg))
+                arg_count = len(func_to_run.extra_args) - 1
+                for index, arg in enumerate(split_list_by_token(TT_COMMA, TT_COMMA, token.extra_params[0])):
+                    args_dict[func_to_run.extra_args[index + 1]] = calculate(parse(arg))
                 if len(args_dict) != arg_count:
-                    PyscriptSyntaxError(f"Function '{func_to_run.name}' expects {arg_count} arguments but {len(args_dict)} were "
-                                        f"given", True)
+                    PyscriptSyntaxError(
+                        f"Function '{func_to_run.name}' expects {arg_count} arguments but {len(args_dict)} were "
+                        f"given", True)
                 result = UnOpNode(func_to_run, "run", lambda a: a.run(args_dict))
 
         elif token.type == TT_EQUALS:
@@ -992,7 +1004,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 return None, KW_USING, var_names
             if token.val == KW_DEL:
                 var_names: List[str] = []
-                for section in split_list_by_token(TT_COMMA, TT_COMMA, raw[i+1-count:]):
+                for section in split_list_by_token(TT_COMMA, TT_COMMA, raw[i + 1 - count:]):
                     if section[0].pseudo_type != PT_DEL:
                         PyscriptSyntaxError("Invalid Syntax", True)
                     var_names.append(section[0].val)
@@ -1009,7 +1021,8 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
             if token.val == KW_FOR:
                 if raw[-1].val != TT_RANGE_TO:
                     PyscriptSyntaxError("Missing colon after 'for' loop", True)
-                sections: List[List[Token]] = split_list_by_token(TT_SEMICOLON, TT_SEMICOLON, raw[i + 1 - count:len(raw)-1])
+                sections: List[List[Token]] = split_list_by_token(TT_SEMICOLON, TT_SEMICOLON,
+                                                                  raw[i + 1 - count:len(raw) - 1])
                 if len(sections) != 3:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 assignment: List[List[Token]] = split_list_by_token(TT_COMMA, TT_COMMA, sections[0])
@@ -1033,7 +1046,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
             if token.val == KW_FUNC:
                 if raw[-1].type != TT_COLON_END:
                     PyscriptSyntaxError("Missing colon after 'func' definition", True)
-                definition: List[Token] = raw[i+1-count:len(raw)-1]
+                definition: List[Token] = raw[i + 1 - count:len(raw) - 1]
                 sections: List[List[Token]] = split_list_by_token(TT_INSERTION, TT_INSERTION, definition)
                 argument_section: List[List[Token]] = split_list_by_token(TT_COMMA, TT_COMMA, sections[0])
                 name: List[Token] = sections[1]
@@ -1049,7 +1062,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 funcs.append(func.name)
                 return None, KW_FUNC, func, args
             if token.val == KW_EXTERN:
-                definition: List[Token] = raw[i+1-count:]
+                definition: List[Token] = raw[i + 1 - count:]
                 splitted_a: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_FUNC, definition)
                 if len(splitted_a) != 2:
                     PyscriptSyntaxError("Invalid Syntax", True)
@@ -1072,6 +1085,12 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 un_ops.append(name[0].val)
                 funcs.append(name[0].val)
                 return None, KW_EXTERN, name[0].val, args, file_name
+            if token.val == KW_RETURN:
+                bracketized: List[Token] = prep_unary(raw[i+1-count:])
+                bracketized, unused = bracketize(bracketized)
+                bracketized = unwrap_unary(bracketized)
+                r_value = calculate(parse(bracketized))
+                return None, KW_RETURN, r_value
 
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:

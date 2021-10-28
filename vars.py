@@ -1,5 +1,6 @@
 from errors import PyscriptNameError, PyscriptSyntaxError
 from structures.sorted_list import SortedList
+from utility_classes.run_data import RunData
 import time
 
 
@@ -93,7 +94,7 @@ class Variable:
         if self.run_func != exec:
             for var, value in kwargs.items():
                 create_var(var, value, False)
-            r_value = self.run_func(self.extra_args[0])
+            r_value = self.run_func(self.extra_args[0], RunData.default.set_attribute("original", True))
             revert_from_scope()
             return r_value
         else:
