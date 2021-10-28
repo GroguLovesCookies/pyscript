@@ -1075,6 +1075,9 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 sections: List[List[Token]] = split_list_by_token(TT_INSERTION, TT_INSERTION, splitted_a[1])
                 argument_section: List[List[Token]] = split_list_by_token(TT_COMMA, TT_COMMA, sections[0])
                 name: List[Token] = sections[1]
+                r_value = None
+                if len(sections) == 3:
+                    r_value = sections[2]
                 if len(name) != 1:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 args = []
@@ -1084,7 +1087,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                     args.append(var[0].val)
                 un_ops.append(name[0].val)
                 funcs.append(name[0].val)
-                return None, KW_EXTERN, name[0].val, args, file_name
+                return None, KW_EXTERN, name[0].val, args, file_name, r_value
             if token.val == KW_RETURN:
                 bracketized: List[Token] = prep_unary(raw[i+1-count:])
                 bracketized, unused = bracketize(bracketized)

@@ -18,6 +18,8 @@ func a, b -> cmp:
 
 
 extern "print.py" func val -> output
+extern "print.py" func prompt -> get_input -> val
 
 
-output(cmp(10, 1))
+input = get_input("Hey! ")
+output(input)

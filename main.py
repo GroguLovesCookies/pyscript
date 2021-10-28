@@ -259,7 +259,11 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                                         chunk = find_chunk(j, py_program)
                                         for k, line in enumerate(chunk):
                                             chunk[k] = line.strip(" ").strip("\t")
-                                        create_var(name.val, 0, True, True, [chunk, *parsed[3]], exec)
+                                        if parsed[5] is None:
+                                            create_var(name.val, 0, True, True, [chunk, *parsed[3]], exec)
+                                        else:
+                                            create_var(name.val, 0, True, True, [chunk, *parsed[3]], exec,
+                                                       parsed[5][0].val)
                     i += 1
                     new_global_line += 1
                     continue
@@ -302,7 +306,3 @@ with open("pyscript/" + filename, "r+") as f:
         print(f"Time taken: {elapsed_time}")
     else:
         run(program, RunData(False, True))
-
-for var in global_vars:
-    if not var.is_callable:
-        print(var)

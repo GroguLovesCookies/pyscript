@@ -3,4 +3,4 @@ def output(val):
 
 
 def get_input(prompt):
-    print(input(prompt))
+    val = input(prompt)
