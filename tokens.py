@@ -835,10 +835,8 @@ def pre_parse(tokenized: List[Token]):
 
 def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Union[Node, Tuple, Label]:
     pre_parse(tokenized)
-    raw_is_none: bool = False
     if raw is None:
         raw = tokenized[:]
-        raw_is_none = True
     result: Node = [tokenized[0]]
 
     if len(tokenized) == 1 and (tokenized[0].type in types or tokenized[0].pseudo_type == PT_GLOBAL):
@@ -1159,26 +1157,25 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                     PyscriptSyntaxError("Missing colon at end of 'while' loop", True)
                 return condition, TT_WHILE
         elif token.type == TT_PERIOD:
-            index = i + 2*int(raw_is_none)
-            if raw[index].type == TT_VAR:
+            if next_token.type == TT_VAR:
                 var: Variable = get_var(previous.val)
                 accessed: Variable = None
-                item_to_search = tokenized[i+2].val
+                item_to_search: str = next_token.val
                 for loc_var in var.extra_args:
                     if loc_var == item_to_search:
                         accessed = loc_var
                         break
                 if accessed is not None:
-                    tokenized[i+2].type = TT_INT
-                    tokenized[i+2].val = accessed.value
-                    tokenized[i+2].pseudo_type = None
-                    del tokenized[i-2:i+2]
+                    tokenized[i+1].type = TT_INT
+                    tokenized[i+1].val = accessed.value
+                    tokenized[i+1].pseudo_type = None
+                    del tokenized[i-1:i+1]
                     return parse(tokenized)
-            elif raw[index].type == None:
-                funcs.append(raw[index].val)
-                var: Variable = get_var(raw[index-2-int(raw_is_none)].val)
+            elif next_token.type == None:
+                funcs.append(next_token.val)
+                var: Variable = get_var(previous.val)
                 accessed: Variable = None
-                item_to_search = raw[index].val
+                item_to_search: str = next_token.val
                 for loc_var in var.extra_args:
                     if loc_var == item_to_search:
                         accessed = loc_var

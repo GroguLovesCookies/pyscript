@@ -1,0 +1,6 @@
+import __builtins__.math.math
+import __builtins__.io.output
+
+
+output.output(math.pow(2, 2))
+output.output(math.sqrt(4))

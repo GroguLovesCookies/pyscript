@@ -1,4 +1,4 @@
-from tokens import calculate, parse, read, funcs
+from tokens import calculate, parse, read, funcs, un_ops
 from vars import *
 from labels import *
 from errors import *
@@ -93,7 +93,10 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                                 new_global_line += val[1] - i
                                 i = val[1]
                             elif val[0] == "return":
-                                return val[1]
+                                if original:
+                                    return val[1]
+                                else:
+                                    return val
                             continue
                     else:
                         val = run(chunk_b, running_data.set_attribute("original", False), global_line=new_global_line)
@@ -108,7 +111,10 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                                 new_global_line += val[1] - i
                                 i = val[1]
                             elif val[0] == "return":
-                                return val[1]
+                                if original:
+                                    return val[1]
+                                else:
+                                    return val
                             continue
                     i += 0 if len(chunk_b) == 0 else len(chunk_b) + 1
                     global_line += 0 if len(chunk_b) == 0 else len(chunk_b) + 1
@@ -132,7 +138,10 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                                 new_global_line += val[1] - i
                                 i = val[1]
                             elif val[0] == "return":
-                                return val[1]
+                                if original:
+                                    return val[1]
+                                else:
+                                    return val
                         new_global_line += line_a - i
                         i = line_a
                     else:
@@ -153,6 +162,16 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                         return "jump", parsed[2].line + 1
                 if parsed[1] == "call":
                     run(parsed[2].chunk)
+                    if type(val) == list:
+                        if not original:
+                            for var_name in parsed[2]:
+                                remove_var(var_name)
+                            return val
+                        new_global_line += val[1] - i
+                        i = val[1]
+                        for var_name in parsed[2]:
+                            remove_var(var_name)
+                        continue
                     i += 1
                     new_global_line += 1
                     continue
@@ -168,15 +187,14 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                             remove_var(var_name)
                         return FLAG_TERMINATE
                     elif type(val) == list:
-                        if not original:
-                            for var_name in parsed[2]:
-                                remove_var(var_name)
-                            return val
-                        new_global_line += val[1] - i
-                        i = val[1]
-                        for var_name in parsed[2]:
-                            remove_var(var_name)
-                        continue
+                        if val[0] == "jump":
+                            new_global_line += val[1] - i
+                            i = val[1]
+                        elif val[0] == "return":
+                            if original:
+                                return val[1]
+                            else:
+                                return val
                     i += len(using_chunk) + 1
                     new_global_line += len(using_chunk) + 1
                     for var_name in parsed[2]:
@@ -197,7 +215,10 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                             new_global_line += val[1] - i
                             i = val[1]
                         elif val[0] == "return":
-                            return val[1]
+                            if original:
+                                return val[1]
+                            else:
+                                return val
                     revert_from_scope()
                     i += len(local_chunk) + 1
                     new_global_line += len(local_chunk) + 1
@@ -234,6 +255,15 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                                 calculate(parse(update_expr))
                                 update[i] = temp[:]
                             continue
+                        elif type(val) == list:
+                            if val[0] == "jump":
+                                new_global_line += val[1] - i
+                                i = val[1]
+                            elif val[0] == "return":
+                                if original:
+                                    return val[1]
+                                else:
+                                    return val
                         for index, update_expr in enumerate(update):
                             temp = update_expr[:]
                             calculate(parse(update_expr))
@@ -268,7 +298,10 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                     new_global_line += 1
                     continue
                 if parsed[1] == "return":
-                    return "return", parsed[2]
+                    if not original:
+                        return "return", parsed[2]
+                    else:
+                        return parsed[2]
                 if parsed[1] == "import":
                     if os.path.exists("pyscript/" + parsed[2]):
                         with open("pyscript/"+parsed[2]) as lib:
@@ -276,8 +309,11 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                             run(lib.read().split("\n"))
                             new_vars = global_vars[:]
                             funcs.clear()
+                            lib_name = os.path.split(os.path.splitext(parsed[2])[0])[-1]
+                            if lib_name in un_ops:
+                                un_ops.remove(lib_name)
                             revert_from_scope()
-                            create_var(os.path.split(os.path.splitext(parsed[2])[0])[-1], 0, True, extra_args=new_vars, container=True)
+                            create_var(lib_name, 0, True, extra_args=new_vars, container=True)
                     i += 1
                     new_global_line += 1
                     continue
@@ -296,7 +332,7 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
         new_global_line += 1
 
 
-filename: str = "import.pyscript"
+filename: str = "math_test.pyscript"
 timing: bool = False
 if len(sys.argv) > 1:
     filename: str = sys.argv[1]
