@@ -1,0 +1,6 @@
+import __builtins__.io.output
+
+
+
+output.output(output.test_var)
+output.output(output.get_input("YOOO"))

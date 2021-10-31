@@ -1,7 +1,6 @@
 from errors import PyscriptNameError, PyscriptSyntaxError
 from structures.sorted_list import SortedList
 from utility_classes.run_data import RunData
-import time
 
 
 global_vars = SortedList()
@@ -14,7 +13,8 @@ search_mode = 0
 
 
 class Variable:
-    def __init__(self, name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None):
+    def __init__(self, name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None,
+                container=False):
         if extra_args is None:
             extra_args = []
         self.value = value
@@ -25,8 +25,12 @@ class Variable:
         self.run_func = run_func
         self.r_value = r_value
         self.name_val = 0
+        self.container = False
         for letter in self.name:
             self.name_val += ord(letter)
+        if self.container:
+            for arg in extra_args:
+                self.__setattr__(arg.name, arg)
 
     def __repr__(self):
         value = self.value
@@ -114,10 +118,11 @@ class Variable:
                     PyscriptNameError(f"Expected variable named {self.r_value}, var not found.", True)
 
 
-def create_var(name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None):
+def create_var(name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None,
+               container=False):
     if extra_args is None:
         extra_args = []
-    var = Variable(name, value, readonly, is_callable, extra_args, run_func, r_value)
+    var = Variable(name, value, readonly, is_callable, extra_args, run_func, r_value, container)
     global_vars.append(var)
     return var.value, var
 
@@ -194,7 +199,7 @@ def start_new_scope():
     cached.append(SortedList())
     for var in global_vars:
         cached[-1].append(Variable(var.name, var.value, var.readonly, var.is_callable, var.extra_args, var.run_func,
-                                   var.r_value))
+                                   var.r_value, var.container))
     global_vars.clear()
 
 
@@ -202,14 +207,15 @@ def revert_from_scope():
     global global_vars
     global_vars.clear()
     for var in cached[-1]:
-        create_var(var.name, var.value, var.readonly, var.is_callable, var.extra_args, var.run_func, var.r_value)
+        create_var(var.name, var.value, var.readonly, var.is_callable, var.extra_args, var.run_func, var.r_value,
+                   var.container)
     del cached[-1]
 
 
 def push_to_previous_cache(name):
     removed = remove_var(name)
     create_var(removed.name, removed.value, removed.readonly, removed.is_callable, removed.extra_args, removed.run_func,
-               removed.r_value)
+               removed.r_value, removed.container)
     if search_mode == 0:
         for var in cached[-1]:
             if var.name == name:

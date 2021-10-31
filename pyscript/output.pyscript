@@ -1,5 +1,0 @@
-extern "print.py" func val -> output
-extern "print.py" func prompt -> get_input
-
-output("Hi")
-get_input("Your name is? ")

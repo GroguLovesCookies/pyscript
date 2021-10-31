@@ -1,4 +1,4 @@
-from tokens import calculate, parse, read
+from tokens import calculate, parse, read, funcs
 from vars import *
 from labels import *
 from errors import *
@@ -269,6 +269,18 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                     continue
                 if parsed[1] == "return":
                     return "return", parsed[2]
+                if parsed[1] == "import":
+                    if os.path.exists("pyscript/" + parsed[2]):
+                        with open("pyscript/"+parsed[2]) as lib:
+                            start_new_scope()
+                            run(lib.read().split("\n"))
+                            new_vars = global_vars[:]
+                            funcs.clear()
+                            revert_from_scope()
+                            create_var(os.path.split(os.path.splitext(parsed[2])[0])[-1], 0, True, extra_args=new_vars, container=True)
+                    i += 1
+                    new_global_line += 1
+                    continue
 
         elif type(parsed) == Label:
             parsed.line = new_global_line
@@ -284,7 +296,7 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
         new_global_line += 1
 
 
-filename: str = "print.pyscript"
+filename: str = "import.pyscript"
 timing: bool = False
 if len(sys.argv) > 1:
     filename: str = sys.argv[1]

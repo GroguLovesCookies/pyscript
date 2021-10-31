@@ -1,4 +1,5 @@
 # Imports
+from os import access
 from errors import *
 from vars import *
 from labels import *
@@ -42,6 +43,7 @@ TT_COMMA = "COMMA"
 TT_COLON_END = "COL_END"
 TT_SEMICOLON = "SEMICOLON"
 TT_INSERTION = "INSERTION"
+TT_PERIOD = "PERIOD"
 
 # Define pseudo-types
 PT_ASSIGNMENT = "ASSIGNING"
@@ -85,12 +87,13 @@ KW_FOR = "for"
 KW_FUNC = "func"
 KW_EXTERN = "extern"
 KW_RETURN = "return"
+KW_IMPORT = "import"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
                   KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None, KW_USING: TT_KEYWORD, KW_DEL: TT_KEYWORD,
                   KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None, KW_FOR: TT_KEYWORD, KW_FUNC: TT_KEYWORD,
-                  KW_EXTERN: TT_KEYWORD, KW_RETURN: TT_KEYWORD}
+                  KW_EXTERN: TT_KEYWORD, KW_RETURN: TT_KEYWORD, KW_IMPORT: TT_KEYWORD}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -104,7 +107,7 @@ un_ops: List[str] = [KW_NOT, KW_OUTER, KW_SCOPE_RESOLUTION]
 funcs: List[str] = []
 
 # Define operator list
-op_chars: List[chr] = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!", ":", ",", ";"]
+op_chars: List[chr] = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!", ":", ",", ";", "."]
 
 # Define indexed versions of un-indexed pseudo-types
 indexed: Dict[str, str] = {PT_ASSIGNMENT: PT_INDEX_ASSIGNMENT, PT_REFERENCE: PT_INDEX_REFERENCE,
@@ -312,6 +315,8 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
                     tokens.append(Token(None, TT_FLOOR_DIV))
                 elif op == "->":
                     tokens.append(Token(TT_INSERTION, TT_INSERTION))
+                elif op == ".":
+                    tokens.append(Token(TT_PERIOD, TT_PERIOD))
                 else:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 continue
@@ -746,12 +751,33 @@ def split_list_by_token(tok_type: str, tok_val, tokenized: List[Token]) -> List[
     return splitted
 
 
+def make_path(pyscript_path: List[Token]) -> str:
+    sections: List[List[Token]] = split_list_by_token(TT_PERIOD, TT_PERIOD, pyscript_path)
+    path: str = ""
+    for i, section in enumerate(sections):
+        if len(section) != 1:
+            PyscriptSyntaxError("Invalid Syntax", True)
+        path += section[0].val
+        path += "/" if i < len(sections)-1 else ".pyscript"
+    return path
+
+
 def pre_parse(tokenized: List[Token]):
     i: int = 0
     while i < len(tokenized):
         token: Token = tokenized[i]
-        if token.val in [KW_LABEL, KW_JUMP, KW_CALL, KW_DEF_LABEL]:
+        if token.val in [KW_LABEL, KW_JUMP, KW_CALL, KW_DEF_LABEL, KW_IMPORT]:
             return
+        if token.type == TT_PERIOD:
+            if tokenized[i+1].val == TT_LPAREN:
+                i += get_closing(tokenized[i+1:])+1
+            else:
+                i += 3
+            continue
+        if i < len(tokenized) - 1:
+            if tokenized[i+1].type == TT_PERIOD:
+                i += 1
+                continue
         if token.pseudo_type == PT_REFERENCE:
             var_exists: bool = False
             for var in global_vars:
@@ -809,8 +835,10 @@ def pre_parse(tokenized: List[Token]):
 
 def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Union[Node, Tuple, Label]:
     pre_parse(tokenized)
+    raw_is_none: bool = False
     if raw is None:
         raw = tokenized[:]
+        raw_is_none = True
     result: Node = [tokenized[0]]
 
     if len(tokenized) == 1 and (tokenized[0].type in types or tokenized[0].pseudo_type == PT_GLOBAL):
@@ -818,6 +846,8 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
 
     i: int = 0
     readonly_flag: bool = False
+    imported: bool = False
+    imported_var: str = ""
     while i < len(tokenized):
         token: Token = tokenized[i]
         previous: Token = None
@@ -838,10 +868,10 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
 
             previous_node: Node = None
             next_node: Node = None
-            if next_token is not None:
+            if next_token is not None and token.val not in funcs:
                 next_node = next_token.val
                 if next_token.val == TT_LPAREN:
-                    next_node = parse(bracket_extract(tokenized[i + 1:]))
+                    next_node = parse(bracket_extract(tokenized[i + 1:]),)
                     i = get_closing(tokenized[i + 1:]) + i + 1
             if previous is not None:
                 previous_node = previous.val
@@ -908,16 +938,24 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 shift_scope_pointer(-1)
                 result = next_node
             if token.val in funcs:
-                func_to_run = get_var(token.val)
+                func_to_run = get_var(token.val if not imported else "0"+token.val)
                 args_dict = {}
                 arg_count = len(func_to_run.extra_args) - 1
                 for index, arg in enumerate(split_list_by_token(TT_COMMA, TT_COMMA, token.extra_params[0])):
-                    args_dict[func_to_run.extra_args[index + 1]] = calculate(parse(arg))
+                    bracketized: List[Token] = prep_unary(arg)
+                    bracketized, unused = bracketize(bracketized)
+                    bracketized = unwrap_unary(bracketized)
+                    args_dict[func_to_run.extra_args[index + 1]] = calculate(parse(bracketized))
                 if len(args_dict) != arg_count:
                     PyscriptSyntaxError(
                         f"Function '{func_to_run.name}' expects {arg_count} arguments but {len(args_dict)} were "
                         f"given", True)
                 result = UnOpNode(func_to_run, "run", lambda a: a.run(args_dict))
+                i += get_closing(tokenized[i+1:])
+                if imported:
+                    remove_var(imported_var)
+                    funcs.remove(token.val)
+                imported = False
 
         elif token.type == TT_EQUALS:
             if previous is not None:
@@ -1094,6 +1132,8 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 bracketized = unwrap_unary(bracketized)
                 r_value = calculate(parse(bracketized))
                 return None, KW_RETURN, r_value
+            if token.val == KW_IMPORT:
+                return None, KW_IMPORT, make_path(raw[i+1-count:])
 
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
@@ -1118,6 +1158,36 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 if tokenized[-1].type != TT_COLON_END:
                     PyscriptSyntaxError("Missing colon at end of 'while' loop", True)
                 return condition, TT_WHILE
+        elif token.type == TT_PERIOD:
+            index = i + 2*int(raw_is_none)
+            if raw[index].type == TT_VAR:
+                var: Variable = get_var(previous.val)
+                accessed: Variable = None
+                item_to_search = tokenized[i+2].val
+                for loc_var in var.extra_args:
+                    if loc_var == item_to_search:
+                        accessed = loc_var
+                        break
+                if accessed is not None:
+                    tokenized[i+2].type = TT_INT
+                    tokenized[i+2].val = accessed.value
+                    tokenized[i+2].pseudo_type = None
+                    del tokenized[i-2:i+2]
+                    return parse(tokenized)
+            elif raw[index].type == None:
+                funcs.append(raw[index].val)
+                var: Variable = get_var(raw[index-2-int(raw_is_none)].val)
+                accessed: Variable = None
+                item_to_search = raw[index].val
+                for loc_var in var.extra_args:
+                    if loc_var == item_to_search:
+                        accessed = loc_var
+                        break
+                if accessed is not None:
+                    create_var("0"+accessed.name, 0, True, True, accessed.extra_args, accessed.run_func, accessed.r_value,
+                               accessed.container)
+                    imported = True
+                    imported_var = "0"+accessed.name
         i += 1
     return result
 

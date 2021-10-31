@@ -1,0 +1,3 @@
+extern "print.py" func val -> output
+extern "print.py" func prompt -> get_input -> val
+test_var = 20
