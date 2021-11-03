@@ -936,10 +936,13 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 shift_scope_pointer(-1)
                 result = next_node
             if token.val in funcs:
-                func_to_run = get_var(token.val if not imported else "0"+token.val)
-                args_dict = {}
-                arg_count = len(func_to_run.extra_args) - 1
-                for index, arg in enumerate(split_list_by_token(TT_COMMA, TT_COMMA, token.extra_params[0])):
+                func_to_run: Variable = get_var(token.val if not imported else "0"+token.val)
+                args_dict: Dict[str, ] = {}
+                arg_count: int = len(func_to_run.extra_args) - 1
+                args: List[List[Token]] = split_list_by_token(TT_COMMA, TT_COMMA, token.extra_params[0])
+                for index, arg in enumerate(args):
+                    if len(arg) == 0 and len(args) == 1:
+                        break
                     bracketized: List[Token] = prep_unary(arg)
                     bracketized, unused = bracketize(bracketized)
                     bracketized = unwrap_unary(bracketized)
@@ -1091,6 +1094,8 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 func: Variable = create_var(name[0].val, 0, True, True)[-1]
                 args = []
                 for var in argument_section:
+                    if len(var) == 0 and len(argument_section) == 1:
+                        break
                     if len(var) != 1:
                         PyscriptSyntaxError("Invalid Syntax", True)
                     args.append(var[0].val)
@@ -1171,7 +1176,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                     tokenized[i+1].pseudo_type = None
                     del tokenized[i-1:i+1]
                     return parse(tokenized)
-            elif next_token.type == None:
+            elif next_token.type is None:
                 funcs.append(next_token.val)
                 var: Variable = get_var(previous.val)
                 accessed: Variable = None
