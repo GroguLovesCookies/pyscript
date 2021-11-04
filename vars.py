@@ -12,6 +12,14 @@ current_index = -1
 search_mode = 0
 
 
+class Scope:
+    def __enter__(self):
+        start_new_scope()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        revert_from_scope()
+
+
 class Variable:
     def __init__(self, name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None,
                 container=False):

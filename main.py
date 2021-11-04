@@ -305,14 +305,16 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                 if parsed[1] == "import":
                     if os.path.exists("pyscript/" + parsed[2]):
                         with open("pyscript/"+parsed[2]) as lib:
-                            start_new_scope()
-                            run(lib.read().split("\n"))
-                            new_vars = global_vars[:]
-                            funcs.clear()
-                            lib_name = os.path.split(os.path.splitext(parsed[2])[0])[-1]
-                            if lib_name in un_ops:
-                                un_ops.remove(lib_name)
-                            revert_from_scope()
+                            with Scope():
+                                run(lib.read().split("\n"))
+                                new_vars = global_vars[:]
+                                funcs.clear()
+                                if parsed[3] == "":
+                                    lib_name = os.path.split(os.path.splitext(parsed[2])[0])[-1]
+                                    if lib_name in un_ops:
+                                        un_ops.remove(lib_name)
+                                else:
+                                    lib_name = parsed[3]
                             create_var(lib_name, 0, True, extra_args=new_vars, container=True)
                     i += 1
                     new_global_line += 1

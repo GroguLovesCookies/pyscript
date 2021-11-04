@@ -88,12 +88,13 @@ KW_FUNC = "func"
 KW_EXTERN = "extern"
 KW_RETURN = "return"
 KW_IMPORT = "import"
+KW_AS = "as"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
                   KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None, KW_USING: TT_KEYWORD, KW_DEL: TT_KEYWORD,
                   KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None, KW_FOR: TT_KEYWORD, KW_FUNC: TT_KEYWORD,
-                  KW_EXTERN: TT_KEYWORD, KW_RETURN: TT_KEYWORD, KW_IMPORT: TT_KEYWORD}
+                  KW_EXTERN: TT_KEYWORD, KW_RETURN: TT_KEYWORD, KW_IMPORT: TT_KEYWORD, KW_AS: TT_KEYWORD}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -1136,7 +1137,13 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                 r_value = calculate(parse(bracketized))
                 return None, KW_RETURN, r_value
             if token.val == KW_IMPORT:
-                return None, KW_IMPORT, make_path(raw[i+1-count:])
+                statement: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_AS, raw[i+1-count:])
+                r_val: str = ""
+                if len(statement) > 1:
+                    if len(statement[1]) != 1:
+                        PyscriptSyntaxError("Invalid Syntax", True)
+                    r_val = statement[1][0].val
+                return None, KW_IMPORT, make_path(statement[0]), r_val
 
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:

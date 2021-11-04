@@ -1,8 +1,8 @@
-import __builtins__.io.output
+import __builtins__.io.output as o
 
 
 func -> greet:
     return 20
 
 
-output.output(greet())
+o.output(greet())
