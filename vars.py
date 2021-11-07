@@ -20,6 +20,26 @@ class Scope:
         revert_from_scope()
 
 
+class SetReset:
+    def __init__(self, name, value):
+        var = get_var(name)
+        if var != -1:
+            self.original = get_var(name).value
+        else:
+            self.original = None
+        self.name = name
+        self.value = value
+
+    def __enter__(self):
+        set_var(self.name, self.value)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.original is not None:
+            set_var(self.name, self.original)
+        else:
+            remove_var(self.name)
+
+
 class Variable:
     def __init__(self, name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None,
                 container=False):
