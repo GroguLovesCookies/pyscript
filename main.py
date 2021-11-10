@@ -356,5 +356,5 @@ with open("pyscript/" + filename, "r+") as f:
         elapsed_time = time.time() - start_time
         print(f"Time taken: {elapsed_time}")
     else:
-        set_var("__name__", "__main__")
+        set_var("__name__", "__main__", True)
         run(program, RunData(False, True))
