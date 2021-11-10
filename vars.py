@@ -8,6 +8,8 @@ cached = []
 current_scope_pointer = -1
 current_var = None
 current_index = -1
+running_function = False
+new_vars = []
 # 0: linear, 1: binary, 2: interpolation
 search_mode = 0
 
@@ -41,8 +43,7 @@ class SetReset:
 
 
 class Variable:
-    def __init__(self, name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None,
-                container=False):
+    def __init__(self, name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None):
         if extra_args is None:
             extra_args = []
         self.value = value
@@ -121,14 +122,17 @@ class Variable:
         return self.name_val * op_val
 
     def run(self, kwargs):
+        global running_function, new_vars
         if not self.is_callable:
             PyscriptSyntaxError(f"Variable {self.name} is not callable", True)
-        start_new_scope()
+        cached.insert(0, SortedList())
+        running_function = True
+        new_vars.clear()
         if self.run_func != exec:
             for var, value in kwargs.items():
                 create_var(var, value, False)
             r_value = self.run_func(self.extra_args[0], RunData.default.set_attribute("original", True))
-            revert_from_scope()
+            mix_scopes()
             return r_value
         else:
             for var, value in kwargs.items():
@@ -139,7 +143,7 @@ class Variable:
                     str_to_run.insert(0, f'{var} = "{value}"')
                 loc = {}
                 self.run_func(";".join(str_to_run), globals(), loc)
-                revert_from_scope()
+                mix_scopes()
                 if self.r_value is not None:
                     if self.r_value in loc.keys():
                         return loc[self.r_value]
@@ -150,7 +154,7 @@ def create_var(name, value, readonly=False, is_callable=False, extra_args=None, 
                container=False):
     if extra_args is None:
         extra_args = []
-    var = Variable(name, value, readonly, is_callable, extra_args, run_func, r_value, container)
+    var = Variable(name, value, readonly, is_callable, extra_args, run_func, r_value)
     global_vars.append(var)
     return var.value, var
 
@@ -191,7 +195,10 @@ def set_var(name, value, readonly=False):
     search_for_var(name)
     if current_var != -1:
         current_var.value = value
+        if running_function:
+            push_to_previous_cache(current_var.name)
         return current_var.value
+    new_vars.append(name)
     return create_var(name, value, readonly)
 
 
@@ -213,6 +220,13 @@ def get_var_from_previous_scope(name):
     PyscriptNameError(f"variable '{name}' was referenced before assignment", True)
 
 
+def mix_scopes():
+    for var in global_vars:
+        if var.name not in new_vars:
+            push_to_previous_cache(var.name)
+    revert_from_scope()
+
+
 def remove_var(name):
     global current_var
     search_for_var(name)
@@ -227,7 +241,7 @@ def start_new_scope():
     cached.append(SortedList())
     for var in global_vars:
         cached[-1].append(Variable(var.name, var.value, var.readonly, var.is_callable, var.extra_args, var.run_func,
-                                   var.r_value, var.container))
+                                   var.r_value))
     global_vars.clear()
 
 

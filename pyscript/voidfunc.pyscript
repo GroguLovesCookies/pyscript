@@ -2,7 +2,8 @@ import __builtins__.io.output as o
 
 
 func -> greet:
-    return 20
+    name = o.get_input("What's your name? ")
+    o.output("Hello " + name + "!")
 
 
-o.output(greet())
+greet()

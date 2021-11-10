@@ -948,12 +948,12 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0) -> Un
                     bracketized, unused = bracketize(bracketized)
                     bracketized = unwrap_unary(bracketized)
                     args_dict[func_to_run.extra_args[index + 1]] = calculate(parse(bracketized))
+                    i += len(arg)+1
                 if len(args_dict) != arg_count:
                     PyscriptSyntaxError(
                         f"Function '{func_to_run.name}' expects {arg_count} arguments but {len(args_dict)} were "
                         f"given", True)
                 result = UnOpNode(func_to_run, "run", lambda a: a.run(args_dict))
-                i += get_closing(tokenized[i+1:])
                 if imported:
                     remove_var(imported_var)
                     funcs.remove(token.val)
