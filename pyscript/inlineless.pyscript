@@ -1,0 +1,4 @@
+func a -> square:
+    b = a*1
+    c = a*b
+    return c

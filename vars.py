@@ -1,6 +1,7 @@
 from errors import PyscriptNameError, PyscriptSyntaxError
 from structures.sorted_list import SortedList
 from utility_classes.run_data import RunData
+from inliner import make_inline
 
 
 global_vars = SortedList()
@@ -148,6 +149,13 @@ class Variable:
                     if self.r_value in loc.keys():
                         return loc[self.r_value]
                     PyscriptNameError(f"Expected variable named {self.r_value}, var not found.", True)
+
+    def get_inline_form(self, kwargs, read):
+        str_to_make_inline = self.extra_args[0][:]
+        for var, value in kwargs.items():
+            str_to_make_inline.insert(0, f"{var}={value}")
+            tokenized_chunk = [read(line)[0] for line in str_to_make_inline]
+            print(make_inline(tokenized_chunk))
 
 
 def create_var(name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None,
