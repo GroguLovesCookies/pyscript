@@ -1,4 +1,30 @@
-func a -> square:
+import __builtins__.io.output
+
+
+inline func a -> square:
     b = a*1
     c = a*b
     return c
+
+
+inline func a -> cube:
+    b = square(a)
+    c = a * b
+    return c
+
+
+func a -> other_square:
+    b = a*1
+    c = a*b
+    return c
+
+inline func a -> quad:
+    b = other_square(a)
+    c = b * a
+    d = c * a
+    return d
+
+
+output.output(square(2))
+output.output(cube(2))
+output.output(quad(2))

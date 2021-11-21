@@ -12,7 +12,7 @@ def is_return(line):
 
 def is_inline(chunk):
     for i, line in enumerate(chunk):
-        if i == len(chunk)-1:
+        if i == len(chunk) - 1:
             if not is_return(line):
                 return False
         else:
@@ -34,13 +34,21 @@ def find_starts_with(val, chunk, criterion=lambda a: True):
 
 def substitute(chunk, line):
     new_line = line[:]
+    inserted_tokens = 0
     for i, tok in enumerate(line):
         if tok.pseudo_type == "REFERENCING":
-            val = substitute(chunk, tokens.split_list_by_token("EQUALS", "EQUALS",
-                                                               find_starts_with(tok.val, chunk, is_assignment))[-1])
-            del new_line[i]
+            found_line = tokens.split_list_by_token("EQUALS", "EQUALS",
+                                                    find_starts_with(tok.val, chunk, is_assignment))[-1]
+
+            bracketized: List[tokens.Token] = tokens.prep_unary(found_line)
+            bracketized, unused = tokens.bracketize(bracketized)
+            bracketized = tokens.unwrap_unary(bracketized)
+
+            val = substitute(chunk, bracketized)
+            del new_line[i+inserted_tokens]
             for token in reversed(val):
-                new_line.insert(i, token)
+                new_line.insert(i+inserted_tokens, token)
+            inserted_tokens += len(val) - 1
     return new_line
 
 
@@ -50,8 +58,8 @@ def make_inline(chunk):
 
         substituted = substitute(chunk, return_line)
         substituted = substituted[1:]
-        bracketized: List[Token] = tokens.prep_unary(substituted)
+        bracketized: List[tokens.Token] = tokens.prep_unary(substituted)
         bracketized, unused = tokens.bracketize(bracketized)
         bracketized = tokens.unwrap_unary(bracketized)
         return bracketized
-    PyscriptSyntaxError("Invalid Format For Inline Function")
+    errors.PyscriptSyntaxError("Invalid Format For Inline Function")

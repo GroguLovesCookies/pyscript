@@ -271,11 +271,10 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                     continue
                 if parsed[1] == "func":
                     variable = get_var(parsed[2].name)
-                    variable.extra_args = [find_chunk(i, lines), *parsed[3]]
+                    variable.extra_args = [find_chunk(i, lines), parsed[4], *parsed[3]]
                     variable.run_func = run
                     i += len(variable.extra_args[0]) + 1
                     new_global_line += len(variable.extra_args[0]) + 1
-                    variable.get_inline_form({"a": "2000"}, read)
                     continue
                 if parsed[1] == "extern":
                     if os.path.splitext(parsed[4])[1] != ".py":

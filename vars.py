@@ -154,8 +154,8 @@ class Variable:
         str_to_make_inline = self.extra_args[0][:]
         for var, value in kwargs.items():
             str_to_make_inline.insert(0, f"{var}={value}")
-            tokenized_chunk = [read(line)[0] for line in str_to_make_inline]
-            print(make_inline(tokenized_chunk))
+            tokenized_chunk = [read(line)[1] for line in str_to_make_inline]
+        return make_inline(tokenized_chunk)
 
 
 def create_var(name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None,
