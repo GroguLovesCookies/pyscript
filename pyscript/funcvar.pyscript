@@ -1,0 +1,9 @@
+import __builtins__.io.output
+
+
+func a -> square:
+    return a * a
+
+duplicate = square
+output.output(duplicate)
+output.output(duplicate(2))

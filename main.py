@@ -1,4 +1,5 @@
-from tokens import calculate, parse, read, funcs, un_ops
+from tokens import calculate, parse, read
+from shared_vars import *
 from vars import *
 from labels import *
 from errors import *
@@ -272,6 +273,7 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                 if parsed[1] == "func":
                     variable = get_var(parsed[2].name)
                     variable.extra_args = [find_chunk(i, lines), parsed[4], *parsed[3]]
+                    variable.value = variable
                     variable.run_func = run
                     i += len(variable.extra_args[0]) + 1
                     new_global_line += len(variable.extra_args[0]) + 1
@@ -316,7 +318,7 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                                             un_ops.remove(lib_name)
                                     else:
                                         lib_name = parsed[3]
-                            create_var(lib_name, 0, True, extra_args=new_vars, container=True)
+                            create_var(lib_name, 0, True, extra_args=new_vars)
                     i += 1
                     new_global_line += 1
                     continue

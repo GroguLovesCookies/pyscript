@@ -2,6 +2,7 @@ from errors import PyscriptNameError, PyscriptSyntaxError
 from structures.sorted_list import SortedList
 from utility_classes.run_data import RunData
 from inliner import make_inline
+from shared_vars import *
 
 
 global_vars = SortedList()
@@ -11,6 +12,7 @@ current_var = None
 current_index = -1
 running_function = False
 new_vars = []
+func_to_register = lambda a: a
 # 0: linear, 1: binary, 2: interpolation
 search_mode = 0
 
@@ -63,13 +65,15 @@ class Variable:
                 self.__setattr__(arg.name, arg)
 
     def __repr__(self):
-        value = self.value
-        if type(self.value) == str:
-            value = f"\"{self.value}\""
-        if not self.readonly:
-            return f"{self.name} = {value}"
-        else:
-            return f"readonly {self.name} = {value}"
+        if not self.is_callable:
+            value = self.value
+            if type(self.value) == str:
+                value = f"\"{self.value}\""
+            if not self.readonly:
+                return f"{self.name} = {value}"
+            else:
+                return f"readonly {self.name} = {value}"
+        return f"'function {self.name}'"
 
     def __lt__(self, other):
         return self.name < other
@@ -157,9 +161,17 @@ class Variable:
             tokenized_chunk = [read(line)[1] for line in str_to_make_inline]
         return make_inline(tokenized_chunk)
 
+    def pyscript_var_assign(self, other):
+        other.value = self.value
+        other.is_callable = self.is_callable
+        other.extra_args = self.extra_args
+        other.run_func = self.run_func
+        other.r_value = self.r_value
+        un_ops.append(other.name)
+        funcs.append(other.name)
 
-def create_var(name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None,
-               container=False):
+
+def create_var(name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None):
     if extra_args is None:
         extra_args = []
     var = Variable(name, value, readonly, is_callable, extra_args, run_func, r_value)
@@ -167,7 +179,7 @@ def create_var(name, value, readonly=False, is_callable=False, extra_args=None, 
     return var.value, var
 
 
-def get_var(name):
+def get_var(name) -> Variable:
     search_for_var(name)
     return current_var
 
@@ -200,14 +212,25 @@ def search_for_var(name):
 
 
 def set_var(name, value, readonly=False):
-    search_for_var(name)
-    if current_var != -1:
-        current_var.value = value
-        if running_function:
-            push_to_previous_cache(current_var.name)
-        return current_var.value
-    new_vars.append(name)
-    return create_var(name, value, readonly)
+    if 'pyscript_var_assign' in dir(value):
+        search_for_var(name)
+        if current_var != -1:
+            value.pyscript_var_assign(current_var)
+            if running_function:
+                push_to_previous_cache(current_var.name)
+            return current_var.value, current_var
+        var = create_var(name, 0, readonly)[1]
+        value.pyscript_var_assign(var)
+        return var.value, var
+    else:
+        search_for_var(name)
+        if current_var != -1:
+            current_var.value = value
+            if running_function:
+                push_to_previous_cache(current_var.name)
+            return current_var.value, current_var
+        new_vars.append(name)
+        return create_var(name, value, readonly)
 
 
 def shift_scope_pointer(i):
@@ -257,15 +280,14 @@ def revert_from_scope():
     global global_vars
     global_vars.clear()
     for var in cached[-1]:
-        create_var(var.name, var.value, var.readonly, var.is_callable, var.extra_args, var.run_func, var.r_value,
-                   var.container)
+        create_var(var.name, var.value, var.readonly, var.is_callable, var.extra_args, var.run_func, var.r_value)
     del cached[-1]
 
 
 def push_to_previous_cache(name):
     removed = remove_var(name)
     create_var(removed.name, removed.value, removed.readonly, removed.is_callable, removed.extra_args, removed.run_func,
-               removed.r_value, removed.container)
+               removed.r_value)
     if search_mode == 0:
         for var in cached[-1]:
             if var.name == name:

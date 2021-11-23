@@ -8,6 +8,8 @@ from range import range_from_to
 from typing import List, Dict, Tuple, Union
 from inliner import *
 from utility_classes.var_data import VarData
+from shared_vars import *
+
 
 # Define tokens
 TT_PLUS = "PLUS"
@@ -105,10 +107,6 @@ compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 types: List[str] = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
 hashable_types: List[str] = [TT_INT, TT_FLOAT, TT_STR, TT_BOOL]
 
-# Define unary operators
-un_ops: List[str] = [KW_NOT, KW_OUTER, KW_SCOPE_RESOLUTION]
-
-funcs: List[str] = []
 
 # Define operator list
 op_chars: List[chr] = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!", ":", ",", ";", "."]
@@ -134,6 +132,14 @@ class Token:
         return f"{self.type}:{self.val}"
 
 
+def register_func(name):
+    un_ops.append(name)
+    funcs.append(name)
+
+
+func_to_register = register_func
+
+
 def prep_unary(tokenized: List[Token]) -> List[Token]:
     start_index_stack: List[int] = []
     i: int = 0
@@ -142,6 +148,10 @@ def prep_unary(tokenized: List[Token]) -> List[Token]:
     while i < len(tokenized):
         token: Token = tokenized[i]
         if token.val in un_ops:
+            if token.val in funcs:
+                if token.pseudo_type != PT_CALLED:
+                    i += 1
+                    continue
             if start_index < 0:
                 start_index = i
         else:
@@ -1220,8 +1230,8 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                         accessed = loc_var
                         break
                 if accessed is not None:
-                    create_var("0"+accessed.name, 0, True, True, accessed.extra_args, accessed.run_func, accessed.r_value,
-                               accessed.container)
+                    create_var("0"+accessed.name, 0, True, True, accessed.extra_args, accessed.run_func,
+                               accessed.r_value)
                     imported = True
                     imported_var = "0"+accessed.name
         i += 1
