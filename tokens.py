@@ -1234,6 +1234,10 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                                accessed.r_value)
                     imported = True
                     imported_var = "0"+accessed.name
+        elif token.pseudo_type == PT_CALLED:
+            if token.val not in funcs:
+                PyscriptSyntaxError(f"Variable {token.val} is not callable", True)
+
         i += 1
     return result
 

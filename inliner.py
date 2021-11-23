@@ -62,4 +62,4 @@ def make_inline(chunk):
         bracketized, unused = tokens.bracketize(bracketized)
         bracketized = tokens.unwrap_unary(bracketized)
         return bracketized
-    errors.PyscriptSyntaxError("Invalid Format For Inline Function")
+    errors.PyscriptSyntaxError("Invalid Format For Inline Function", True)

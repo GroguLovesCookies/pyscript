@@ -4,6 +4,13 @@ import __builtins__.io.output
 func a -> square:
     return a * a
 
+func a -> cube:
+    return a * a * a
+
 duplicate = square
+output.output(duplicate)
+output.output(duplicate(2))
+
+duplicate = cube
 output.output(duplicate)
 output.output(duplicate(2))

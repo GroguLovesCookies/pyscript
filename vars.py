@@ -131,13 +131,14 @@ class Variable:
         if not self.is_callable:
             PyscriptSyntaxError(f"Variable {self.name} is not callable", True)
         cached.insert(0, SortedList())
-        running_function = True
-        new_vars.clear()
         if self.run_func != exec:
+            running_function = True
+            new_vars.clear()
             for var, value in kwargs.items():
                 create_var(var, value, False)
             r_value = self.run_func(self.extra_args[0], RunData.default.set_attribute("original", True))
             mix_scopes()
+            running_function = False
             return r_value
         else:
             for var, value in kwargs.items():
@@ -169,6 +170,14 @@ class Variable:
         other.r_value = self.r_value
         un_ops.append(other.name)
         funcs.append(other.name)
+
+    def pyscript_var_deassign(self, other):
+        other.is_callable = False
+        other.extra_args = []
+        other.run_func = None
+        other.r_value = None
+        un_ops.remove(other.name)
+        funcs.remove(other.name)
 
 
 def create_var(name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None):
@@ -212,8 +221,11 @@ def search_for_var(name):
 
 
 def set_var(name, value, readonly=False):
+    search_for_var(name)
+    if current_var != -1:
+        if 'pyscript_var_deassign' in dir(current_var.value):
+            current_var.value.pyscript_var_deassign(current_var)
     if 'pyscript_var_assign' in dir(value):
-        search_for_var(name)
         if current_var != -1:
             value.pyscript_var_assign(current_var)
             if running_function:
@@ -223,7 +235,6 @@ def set_var(name, value, readonly=False):
         value.pyscript_var_assign(var)
         return var.value, var
     else:
-        search_for_var(name)
         if current_var != -1:
             current_var.value = value
             if running_function:
