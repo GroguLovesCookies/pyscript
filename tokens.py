@@ -981,7 +981,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                     PyscriptSyntaxError(
                         f"Function '{func_to_run.name}' expects {arg_count} arguments but {len(args_dict)} were "
                         f"given", True)
-                inline_flag: bool = func_to_run.extra_args[1 if func_to_run.run_func == exec else 0]
+                inline_flag: bool = func_to_run.extra_args[1 if func_to_run.run_func != exec else 0]
                 if not inline_flag or func_to_run.run_func == exec:
                     result = UnOpNode(func_to_run, "run", lambda a: a.run(args_dict))
                 else:

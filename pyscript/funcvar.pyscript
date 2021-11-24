@@ -14,3 +14,10 @@ output.output(duplicate(2))
 duplicate = cube
 output.output(duplicate)
 output.output(duplicate(2))
+
+func a, arg -> calculate:
+    return a(arg)
+
+output.output(calculate(square, 2))
+output.output(calculate(cube, 2))
+output.output(calculate(cube, 5))

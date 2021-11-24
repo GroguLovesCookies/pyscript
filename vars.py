@@ -135,7 +135,7 @@ class Variable:
             running_function = True
             new_vars.clear()
             for var, value in kwargs.items():
-                create_var(var, value, False)
+                set_var(var, value, False)
             r_value = self.run_func(self.extra_args[0], RunData.default.set_attribute("original", True))
             mix_scopes()
             running_function = False
@@ -184,6 +184,8 @@ def create_var(name, value, readonly=False, is_callable=False, extra_args=None, 
     if extra_args is None:
         extra_args = []
     var = Variable(name, value, readonly, is_callable, extra_args, run_func, r_value)
+    if 'pyscript_var_assign' in dir(value):
+        value.pyscript_var_assign(var)
     global_vars.append(var)
     return var.value, var
 
@@ -222,9 +224,10 @@ def search_for_var(name):
 
 def set_var(name, value, readonly=False):
     search_for_var(name)
-    if current_var != -1:
-        if 'pyscript_var_deassign' in dir(current_var.value):
-            current_var.value.pyscript_var_deassign(current_var)
+    if not running_function:
+        if current_var != -1:
+            if 'pyscript_var_deassign' in dir(current_var.value):
+                current_var.value.pyscript_var_deassign(current_var)
     if 'pyscript_var_assign' in dir(value):
         if current_var != -1:
             value.pyscript_var_assign(current_var)
@@ -295,10 +298,11 @@ def revert_from_scope():
     del cached[-1]
 
 
-def push_to_previous_cache(name):
+def push_to_previous_cache(name, destructive=False):
     removed = remove_var(name)
-    create_var(removed.name, removed.value, removed.readonly, removed.is_callable, removed.extra_args, removed.run_func,
-               removed.r_value)
+    if not destructive:
+        create_var(removed.name, removed.value, removed.readonly, removed.is_callable, removed.extra_args, removed.run_func,
+                   removed.r_value)
     if search_mode == 0:
         for var in cached[-1]:
             if var.name == name:
