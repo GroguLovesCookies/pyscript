@@ -168,14 +168,18 @@ class Variable:
         other.extra_args = self.extra_args
         other.run_func = self.run_func
         other.r_value = self.r_value
-        un_ops.append(other.name)
-        funcs.append(other.name)
+        un_ops.add(other.name)
+        funcs.add(other.name)
 
     def pyscript_var_deassign(self, other):
         other.is_callable = False
         other.extra_args = []
         other.run_func = None
         other.r_value = None
+        un_ops.remove(other.name)
+        funcs.remove(other.name)
+
+    def pyscript_var_delete(self, other):
         un_ops.remove(other.name)
         funcs.remove(other.name)
 
@@ -272,10 +276,12 @@ def mix_scopes():
     revert_from_scope()
 
 
-def remove_var(name):
+def remove_var(name, user_delete=False):
     global current_var
     search_for_var(name)
     if current_var != -1:
+        if user_delete and'pyscript_var_delete' in dir(current_var.value):
+            current_var.value.pyscript_var_delete(current_var)
         val = global_vars[current_index]
         del global_vars[current_index]
         return val

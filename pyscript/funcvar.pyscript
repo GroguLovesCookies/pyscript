@@ -21,3 +21,7 @@ func a, arg -> calculate:
 output.output(calculate(square, 2))
 output.output(calculate(cube, 2))
 output.output(calculate(cube, 5))
+
+del duplicate
+
+duplicate(2)

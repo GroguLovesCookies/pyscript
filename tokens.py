@@ -133,8 +133,8 @@ class Token:
 
 
 def register_func(name):
-    un_ops.append(name)
-    funcs.append(name)
+    un_ops.add(name)
+    funcs.add(name)
 
 
 func_to_register = register_func
@@ -965,6 +965,8 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                 result = next_node
             if token.val in funcs:
                 func_to_run: Variable = get_var(token.val if not imported else "0"+token.val)
+                if func_to_run == -1:
+                    PyscriptNameError(f"Function '{token.val}' does not exist", True)
                 args_dict: Dict[str, ] = {}
                 arg_count: int = len(func_to_run.extra_args) - (1 if func_to_run.run_func == exec else 2)
                 args: List[List[Token]] = split_list_by_token(TT_COMMA, TT_COMMA, token.extra_params[0])
@@ -1137,8 +1139,8 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                     if len(var) != 1:
                         PyscriptSyntaxError("Invalid Syntax", True)
                     args.append(var[0].val)
-                un_ops.append(func.name)
-                funcs.append(func.name)
+                un_ops.add(func.name)
+                funcs.add(func.name)
                 return None, KW_FUNC, func, args, is_inline
             if token.val == KW_EXTERN:
                 definition: List[Token] = raw[i + 1 - count:]
@@ -1164,8 +1166,8 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                     if len(var) != 1:
                         PyscriptSyntaxError("Invalid Syntax", True)
                     args.append(var[0].val)
-                un_ops.append(name[0].val)
-                funcs.append(name[0].val)
+                un_ops.add(name[0].val)
+                funcs.add(name[0].val)
                 return None, KW_EXTERN, name[0].val, args, file_name, r_value
             if token.val == KW_RETURN:
                 bracketized: List[Token] = prep_unary(raw[i+1-count:])
@@ -1221,7 +1223,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                     del tokenized[i-1:i+1]
                     return parse(tokenized)
             elif next_token.type is None:
-                funcs.append(next_token.val)
+                funcs.add(next_token.val)
                 var: Variable = get_var(previous.val)
                 accessed: Variable = None
                 item_to_search: str = next_token.val

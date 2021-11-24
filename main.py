@@ -203,7 +203,7 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                     continue
                 if parsed[1] == "del":
                     for var_name in parsed[2]:
-                        remove_var(var_name)
+                        remove_var(var_name, True)
                     i += 1
                     new_global_line += 1
                     continue

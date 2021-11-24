@@ -1,2 +1,2 @@
-un_ops = ["not", "outer", "scope_res"]
-funcs = []
+un_ops = {"not", "outer", "scope_res"}
+funcs = set()
