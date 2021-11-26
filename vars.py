@@ -280,8 +280,10 @@ def remove_var(name, user_delete=False):
     global current_var
     search_for_var(name)
     if current_var != -1:
-        if user_delete and'pyscript_var_delete' in dir(current_var.value):
+        if user_delete and 'pyscript_var_delete' in dir(current_var.value):
             current_var.value.pyscript_var_delete(current_var)
+        if user_delete and current_var.readonly[1]:
+            PyscriptSyntaxError(f"Attempting to delete indestructible variable '{name}'", True)
         val = global_vars[current_index]
         del global_vars[current_index]
         return val

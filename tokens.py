@@ -93,13 +93,14 @@ KW_RETURN = "return"
 KW_IMPORT = "import"
 KW_AS = "as"
 KW_INLINE = "inline"
+KW_INDESTRUCTIBLE = "indestructible"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
                   KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None, KW_USING: TT_KEYWORD, KW_DEL: TT_KEYWORD,
                   KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None, KW_FOR: TT_KEYWORD, KW_FUNC: TT_KEYWORD,
                   KW_EXTERN: TT_KEYWORD, KW_RETURN: TT_KEYWORD, KW_IMPORT: TT_KEYWORD, KW_AS: TT_KEYWORD,
-                  KW_INLINE: TT_KEYWORD}
+                  KW_INLINE: TT_KEYWORD, KW_INDESTRUCTIBLE: TT_KEYWORD}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -147,13 +148,14 @@ def prep_unary(tokenized: List[Token]) -> List[Token]:
     insert_number: int = 0
     while i < len(tokenized):
         token: Token = tokenized[i]
-        if token.val in un_ops:
-            if token.val in funcs:
-                if token.pseudo_type != PT_CALLED:
-                    i += 1
-                    continue
-            if start_index < 0:
-                start_index = i
+        if type(token.val) != list:
+            if token.val in un_ops:
+                if token.val in funcs:
+                    if token.pseudo_type != PT_CALLED:
+                        i += 1
+                        continue
+                if start_index < 0:
+                    start_index = i
         else:
             if token.val == TT_LPAREN:
                 start_index_stack.append(start_index)
@@ -817,7 +819,7 @@ def pre_parse(tokenized: List[Token], extra_vars=None):
             for var in global_vars:
                 if token.val == var.name:
                     found_var = var
-            if found_var is not None and found_var.readonly:
+            if found_var is not None and found_var.readonly[0]:
                 PyscriptAssignmentError(f"Editing readonly variable '{found_var.name}'", True)
         elif token.pseudo_type == PT_INDEX_REFERENCE:
             var_exists: bool = False
@@ -872,6 +874,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
 
     i: int = 0
     readonly_flag: bool = False
+    indestructible_flag: bool = False
     imported: bool = False
     imported_var: str = ""
     while i < len(tokenized):
@@ -1002,7 +1005,8 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                         bracketized, unused = bracketize(bracketized)
                         bracketized = unwrap_unary(bracketized)
                         value = calculate(parse(bracketized, extra_vars=extra_vars))
-                        result = BinOpNode(name, value, "=", lambda a, b: set_var(a, b, readonly_flag))
+                        result = BinOpNode(name, value, "=", lambda a, b: set_var(a, b, [readonly_flag,
+                                                                                         indestructible_flag]))
                         return result
                     elif previous.pseudo_type == PT_INDEX_ASSIGNMENT:
                         name: str = previous.val
@@ -1019,10 +1023,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
         elif token.type == TT_KEYWORD:
             if token.val == KW_READONLY:
                 if i < len(tokenized) - 1:
-                    if tokenized[i + 1].type == TT_VAR:
-                        readonly_flag = True
-                    else:
-                        PyscriptSyntaxError("Invalid Syntax", True)
+                    readonly_flag = True
                 else:
                     PyscriptSyntaxError("Invalid Syntax", True)
             if token.val == KW_CONTINUE:
@@ -1183,6 +1184,11 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                         PyscriptSyntaxError("Invalid Syntax", True)
                     r_val = statement[1][0].val
                 return None, KW_IMPORT, make_path(statement[0]), r_val
+            if token.val == KW_INDESTRUCTIBLE:
+                if i < len(tokenized) - 1:
+                    indestructible_flag = True
+                else:
+                    PyscriptSyntaxError("Invalid Syntax", True)
 
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
