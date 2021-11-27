@@ -762,15 +762,24 @@ def get_closing_text(expr: str, opening: chr = "(", closing: chr = ")") -> int:
     return i - 1
 
 
-def split_list_by_token(tok_type: str, tok_val, tokenized: List[Token]) -> List[List[Token]]:
+def split_list_by_token(tok_type: str, tok_val, tokenized: List[Token], index: int = 0) -> List[List[Token]]:
     splitted: List[List[Token]] = []
     current_split: List[Token] = []
+    cur_index = 0
     i = 0
+    if index == -1:
+        for ind, tok in enumerate(tokenized):
+            if tok.val == tok_val and tok.type == tok_type:
+                index += 1
     while i < len(tokenized):
         token = tokenized[i]
         if token.type == tok_type and token.val == tok_val:
-            splitted.append(current_split)
-            current_split = []
+            if cur_index == index or index == 0:
+                splitted.append(current_split)
+                current_split = []
+            else:
+                current_split.append(token)
+                cur_index += 1
             i += 1
             continue
         if token.val == TT_LPAREN:
@@ -1202,7 +1211,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
             if token.val == KW_LET:
                 if i >= len(tokenized):
                     PyscriptSyntaxError("Invalid Syntax", True)
-                splitted: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_BE, raw[i+1-count:])
+                splitted: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_BE, raw[i+1-count:], -1)
                 if len(splitted) != 2:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 if len(splitted[1]) != 1:

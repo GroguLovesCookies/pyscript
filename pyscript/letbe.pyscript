@@ -1,7 +1,10 @@
 import __builtins__.io.output
 
 let readonly indestructible be const
-let inline func be infunc
+let let be rename
+let be be to
+
+rename inline func to infunc
 
 const a = 10
 
