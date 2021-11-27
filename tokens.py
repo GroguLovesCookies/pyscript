@@ -8,6 +8,7 @@ from range import range_from_to
 from typing import List, Dict, Tuple, Union
 from inliner import *
 from utility_classes.var_data import VarData
+from token_def import TokDef
 from shared_vars import *
 
 
@@ -94,13 +95,15 @@ KW_IMPORT = "import"
 KW_AS = "as"
 KW_INLINE = "inline"
 KW_INDESTRUCTIBLE = "indestructible"
+KW_LET = "let"
+KW_BE = "be"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
                   KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None, KW_USING: TT_KEYWORD, KW_DEL: TT_KEYWORD,
                   KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None, KW_FOR: TT_KEYWORD, KW_FUNC: TT_KEYWORD,
                   KW_EXTERN: TT_KEYWORD, KW_RETURN: TT_KEYWORD, KW_IMPORT: TT_KEYWORD, KW_AS: TT_KEYWORD,
-                  KW_INLINE: TT_KEYWORD, KW_INDESTRUCTIBLE: TT_KEYWORD}
+                  KW_INLINE: TT_KEYWORD, KW_INDESTRUCTIBLE: TT_KEYWORD, KW_LET: TT_KEYWORD, KW_BE: TT_KEYWORD}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -148,14 +151,16 @@ def prep_unary(tokenized: List[Token]) -> List[Token]:
     insert_number: int = 0
     while i < len(tokenized):
         token: Token = tokenized[i]
-        if type(token.val) != list:
-            if token.val in un_ops:
-                if token.val in funcs:
-                    if token.pseudo_type != PT_CALLED:
-                        i += 1
-                        continue
-                if start_index < 0:
-                    start_index = i
+        if type(token.val) == list:
+            i += 1
+            continue
+        if token.val in un_ops:
+            if token.val in funcs:
+                if token.pseudo_type != PT_CALLED:
+                    i += 1
+                    continue
+            if start_index < 0:
+                start_index = i
         else:
             if token.val == TT_LPAREN:
                 start_index_stack.append(start_index)
@@ -444,7 +449,12 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
                             name = KW_SCOPE_RESOLUTION
                     tokens.append(Token(kw_type, name))
                 else:
-                    tokens.append(Token(TT_VAR, name))
+                    token_definition = TokDef.FindTokDef(name)
+                    if token_definition is None:
+                        tokens.append(Token(TT_VAR, name))
+                    else:
+                        for tok in token_definition.definition:
+                            tokens.append(tok)
 
             # Look for strings
             elif char == "\"":
@@ -791,7 +801,7 @@ def pre_parse(tokenized: List[Token], extra_vars=None):
     i: int = 0
     while i < len(tokenized):
         token: Token = tokenized[i]
-        if token.val in [KW_LABEL, KW_JUMP, KW_CALL, KW_DEF_LABEL, KW_IMPORT]:
+        if token.val in [KW_LABEL, KW_JUMP, KW_CALL, KW_DEF_LABEL, KW_IMPORT, KW_LET]:
             return
         if token.type == TT_PERIOD:
             if tokenized[i+1].val == TT_LPAREN:
@@ -1189,6 +1199,19 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                     indestructible_flag = True
                 else:
                     PyscriptSyntaxError("Invalid Syntax", True)
+            if token.val == KW_LET:
+                if i >= len(tokenized):
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                splitted: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_BE, raw[i+1-count:])
+                if len(splitted) != 2:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                if len(splitted[1]) != 1:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                definition = splitted[0]
+                name = splitted[1][0]
+                if name.type != TT_VAR:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                return TokDef(name.val, definition)
 
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:

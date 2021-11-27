@@ -1,0 +1,14 @@
+import __builtins__.io.output
+
+let readonly indestructible be const
+let inline func be infunc
+
+const a = 10
+
+# a = 10 # Gives Assignment Error as a is readonly
+# del a # Gives SyntaxError as a is indestructible
+
+infunc a -> square:
+    return a * a
+
+output.output(square(2))

@@ -7,6 +7,7 @@ import sys
 import time
 from typing import List
 from utility_classes.run_data import RunData
+from token_def import TokDef
 import os
 
 
@@ -331,6 +332,10 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                 run(parsed.chunk, global_line=new_global_line + 1)
             i += len(parsed.chunk) + 1
             new_global_line += len(parsed.chunk) + 1
+            continue
+        elif type(parsed) == TokDef:
+            i += 1
+            new_global_line += 1
             continue
         calculate(parsed)
         i += 1
