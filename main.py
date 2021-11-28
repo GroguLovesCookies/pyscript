@@ -10,7 +10,6 @@ from utility_classes.run_data import RunData
 from token_def import TokDef
 import os
 
-
 FLAG_TERMINATE = "TERMINATE_LOOP"
 FLAG_CONTINUE = "CONTINUE_ITER"
 
@@ -293,9 +292,9 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                                         for k, line in enumerate(chunk):
                                             chunk[k] = line.strip(" ").strip("\t")
                                         if parsed[5] is None:
-                                            create_var(name.val, 0, True, True, [chunk, *parsed[3]], exec)
+                                            create_var(name.val, 0, [True, True], True, [chunk, *parsed[3]], exec)
                                         else:
-                                            create_var(name.val, 0, True, True, [chunk, *parsed[3]], exec,
+                                            create_var(name.val, 0, [True, True], True, [chunk, *parsed[3]], exec,
                                                        parsed[5][0].val)
                     i += 1
                     new_global_line += 1
@@ -307,19 +306,27 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                         return parsed[2]
                 if parsed[1] == "import":
                     if os.path.exists("pyscript/" + parsed[2]):
-                        with open("pyscript/"+parsed[2]) as lib:
+                        with open("pyscript/" + parsed[2]) as lib:
                             with Scope():
                                 with SetReset("__name__", "__import__"):
                                     run(lib.read().split("\n"))
-                                    new_vars = global_vars[:]
-                                    funcs.clear()
-                                    if parsed[3] == "":
-                                        lib_name = os.path.split(os.path.splitext(parsed[2])[0])[-1]
-                                        if lib_name in un_ops:
-                                            un_ops.remove(lib_name)
-                                    else:
-                                        lib_name = parsed[3]
-                            create_var(lib_name, 0, True, extra_args=new_vars)
+                                    additional_vars = global_vars.__copy__()
+                                    if len(parsed[4]) == 0:
+                                        funcs.clear()
+                                        if parsed[3] == "":
+                                            lib_name = os.path.split(os.path.splitext(parsed[2])[0])[-1]
+                                            if lib_name in un_ops:
+                                                un_ops.remove(lib_name)
+                                        else:
+                                            lib_name = parsed[3]
+                            if len(parsed[4]) == 0:
+                                create_var(lib_name, 0, [True, True], extra_args=additional_vars)
+                            else:
+                                for name in parsed[4]:
+                                    fetched = additional_vars[additional_vars
+                                                              .interpolation_search(0, len(additional_vars) - 1, name)]
+                                    create_var(fetched.name, fetched.value, fetched.readonly, fetched.is_callable,
+                                               fetched.extra_args, fetched.run_func, fetched.r_value)
                     i += 1
                     new_global_line += 1
                     continue
@@ -363,5 +370,5 @@ with open("pyscript/" + filename, "r+") as f:
         elapsed_time = time.time() - start_time
         print(f"Time taken: {elapsed_time}")
     else:
-        set_var("__name__", "__main__", True)
+        set_var("__name__", "__main__", [True, True])
         run(program, RunData(False, True))

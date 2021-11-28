@@ -6,6 +6,19 @@ class SortedList:
         self.array = []
         self.iter_index = 0
 
+    @classmethod
+    def FromArray(cls, arr):
+        created = cls()
+        created.array = sorted(arr)
+        return created
+
+    @classmethod
+    def FromSortedList(cls, arr):
+        created = cls()
+        created.iter_index = arr.iter_index
+        created.array = arr.array[:]
+        return created
+
     def append(self, val):
         if len(self.array) == 0:
             self.array.append(val)
@@ -51,14 +64,14 @@ class SortedList:
         if low < high and self.array[low] <= val <= self.array[high]:
             pos = low + (((-(self.array[low]-val)) * (high - low)) // (self.array[high] - self.array[low]))
             if self.array[pos] == val:
-                return pos
+                return pos if pos >= 0 else (len(self) + pos)
             if self.array[pos] < val:
                 return self.interpolation_search(pos+1, high, val)
             else:
                 return self.interpolation_search(low, pos-1, val)
         if low == high:
             if self.array[low] == val:
-                return low
+                return low if low >= 0 else len(self)-low
         return -1
 
     def __getitem__(self, item):
@@ -90,3 +103,6 @@ class SortedList:
 
     def clear(self):
         self.array.clear()
+
+    def __copy__(self):
+        return SortedList.FromSortedList(self)

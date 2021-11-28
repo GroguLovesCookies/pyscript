@@ -1,0 +1,3 @@
+import output, get_input from __builtins__.io.output
+
+output("HI!")

@@ -98,6 +98,7 @@ KW_INDESTRUCTIBLE = "indestructible"
 KW_LET = "let"
 KW_BE = "be"
 KW_REM_KW = "rem_keyword"
+KW_FROM = "from"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
@@ -105,7 +106,7 @@ KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, 
                   KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None, KW_FOR: TT_KEYWORD, KW_FUNC: TT_KEYWORD,
                   KW_EXTERN: TT_KEYWORD, KW_RETURN: TT_KEYWORD, KW_IMPORT: TT_KEYWORD, KW_AS: TT_KEYWORD,
                   KW_INLINE: TT_KEYWORD, KW_INDESTRUCTIBLE: TT_KEYWORD, KW_LET: TT_KEYWORD, KW_BE: TT_KEYWORD,
-                  KW_REM_KW: TT_KEYWORD}
+                  KW_REM_KW: TT_KEYWORD, KW_FROM: TT_KEYWORD}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -147,40 +148,59 @@ func_to_register = register_func
 
 
 def prep_unary(tokenized: List[Token]) -> List[Token]:
+    """A function that combines unary sequences into single units"""
+
+    # Initialize
     start_index_stack: List[int] = []
     i: int = 0
     start_index: int = -1
     insert_number: int = 0
+    # Loop
     while i < len(tokenized):
         token: Token = tokenized[i]
+        # Lists are not parts of unary sequences
         if type(token.val) == list:
             i += 1
             continue
         if token.val in un_ops:
+            # If it's a unary operator
             if token.val in funcs:
+                # If it's a function
                 if token.pseudo_type != PT_CALLED:
+                    # If it's not being called, then it does not act as a unary operator
+                    # but a variable, therefore skip
                     i += 1
                     continue
             if start_index < 0:
+                # Remember start index of unary sequence
                 start_index = i
         else:
             if token.val == TT_LPAREN:
+                # If it's a opening bracket, then remember start_index for later to
+                # allow for nested unary sequences
                 start_index_stack.append(start_index)
                 start_index = -1
             elif token.val == TT_RPAREN:
+                # If it's a closing bracket, then get start_index for previous unary sequence
                 start_index = start_index_stack.pop()
             elif start_index >= 0:
+                # Calculate end index based on number of inserts
                 change: int = insert_number
                 if insert_number > 0:
                     change -= 1
+                # Get unary sequence
                 thing: List[Token] = tokenized[start_index: i + 1 - change]
+                # Delete all but one element of the sequence and change i
                 del tokenized[start_index: i - change]
                 i -= len(thing) - 1
+                # Assign the unit to the remaining element of the sequence
                 tokenized[start_index] = Token(TT_UNIT, thing)
+                # Change insert number and reset start_index as unary sequence is completed
                 insert_number += 1
                 start_index = -1
         i += 1
     if start_index >= 0:
+        # If there is a unary sequence leftover at the end, then do this
         change: int = insert_number
         if insert_number > 0:
             change -= 1
@@ -191,11 +211,17 @@ def prep_unary(tokenized: List[Token]) -> List[Token]:
 
 
 def unwrap_unary(tokenized: List[Token]) -> List[Token]:
+    """A function to unwrap and re-bracketize unary sequences"""
+    # Initalize
     i: int = 0
+    # Loop
     while i < len(tokenized):
         token: Token = tokenized[i]
+        # If it is a combined unary sequence...
         if token.type == TT_UNIT:
+            # Delete the unit
             del tokenized[i]
+            # Insert brackets and re-insert combined unary sequence
             tokenized.insert(i, Token(TT_BRACKET, TT_RPAREN))
             for item in reversed(bracketize(token.val, True)[0]):
                 tokenized.insert(i, item)
@@ -205,6 +231,7 @@ def unwrap_unary(tokenized: List[Token]) -> List[Token]:
 
 
 def split_list(text: str, character: str = " ", strip: bool = False) -> List[str]:
+    """A function to split lists from text"""
     splitted: List[str] = []
     quote_ignore: bool = False
     bracket_ignore: bool = False
@@ -221,6 +248,8 @@ def split_list(text: str, character: str = " ", strip: bool = False) -> List[str
             bracket_ignore = False
             current += char
         elif char == character:
+            # Not quote_ignore in order to ignore the split character if it
+            # occurs in  a string
             if not quote_ignore and not bracket_ignore:
                 splitted.append(current if not strip else current.strip())
                 current = ""
@@ -236,10 +265,13 @@ def split_list(text: str, character: str = " ", strip: bool = False) -> List[str
 
 
 def get_list(text: str, i: int) -> Token:
-    listed: List[Token] = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True, group_by=",")
+    """A function to get a list from text"""
+    # Read full list
+    listed: List[List[Token]] = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True, group_by=",")
     i = get_closing_text(text[i:], "[", "]") + i
     j: int = 0
     while j < len(listed):
+        # Calculate each set of tokens
         listed[j] = calculate(parse(listed[j]))
         j += 1
     return Token(TT_LIST, listed)
@@ -250,7 +282,7 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
     """A function to tokenize input text"""
 
     if group_by != "":
-        results: List[Token] = [read(item)[0] for item in split_list(text, ",", True)]
+        results: List[List[Token]] = [read(item)[0] for item in split_list(text, ",", True)]
         return results
     else:
         # Set initial state
@@ -283,6 +315,7 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
             # Operator checks
             if char in op_chars:
                 op: str = ""
+                # Compounds chars to find longest match
                 while char in op_chars:
                     op += char
                     i += 1
@@ -442,22 +475,31 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
                 # Check if word is keyword or variable
                 if name in KEYWORDS.keys():
                     if name == KW_REM_KW:
+                        # is_remove flag disables expansion of TokDefs
                         is_remove = True
                     kw_type: str = KEYWORDS[name]
                     if kw_type == TT_BOOL:
+                        # Builtin bool() doesn't seem to work
                         if name == "True":
                             name = True
                         else:
                             name = False
                     if name == KW_OUTER:
+                        # Outer is a conman, if the previous token is an outer, then it should behave
+                        # differently from when latest token is not an outer
                         if latest.val == KW_OUTER or latest.val == KW_SCOPE_RESOLUTION:
                             name = KW_SCOPE_RESOLUTION
                     tokens.append(Token(kw_type, name))
                 else:
+                    # It's either a variable or a TokDef
+                    # so find a TokDef
                     token_definition = TokDef.FindTokDef(name)
                     if token_definition is None or is_remove:
+                        # If one is found or it is a rem_keyword then
+                        # It is a var...
                         tokens.append(Token(TT_VAR, name))
                     else:
+                        # Otherwise it's a TokDef so expand it
                         for tok in token_definition.definition:
                             tokens.append(tok)
 
@@ -504,14 +546,19 @@ def compound_operators(tokenized: List[Token]) -> List[Token]:
         match_index: int = 0
         match_start: int = -1
         while i < len(tokenized):
+            # If it matches the pattern so far...
             if tokenized[i].val == pattern[match_index]:
                 if match_index == 0:
+                    # and it's the beginning of a match then set match_start...
                     match_start = i
+                # ...if it's not the beginning increment match_index
                 match_index += 1
                 if match_index == len(pattern):
+                    # If it is the full length of the pattern, then combine it
                     del tokenized[match_start: i]
                     tokenized[match_start] = Token(KEYWORDS[keyword], keyword)
             else:
+                # Otherwise any match so far is bogus so reset
                 match_index = 0
                 match_start = -1
             i += 1
@@ -528,6 +575,7 @@ def assign_pseudo_types(tokenized: List[Token]):
     # Assignment loop
     while i < len(tokenized):
         token: Token = tokenized[i]
+        # Check what statement type it is
         if token.val == KW_USING:
             var_data.set("is_using", True)
         if token.val == KW_DEL:
@@ -541,6 +589,7 @@ def assign_pseudo_types(tokenized: List[Token]):
         if token.val == KW_FUNC:
             var_data.set("is_func", True)
         if token.type == TT_VAR:
+            # If it is a var then find its pseudo-type
             pseudo_type, extra_args = check_variable(tokenized, i, var_data)
             if pseudo_type == PT_CALLED:
                 token.type = None
@@ -552,6 +601,7 @@ def assign_pseudo_types(tokenized: List[Token]):
 def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.default) -> Tuple[str, List[int]]:
     # If it is a variable, it can be either
     # referenced or assigned.
+    # That was long ago, now it can be deleted, used, indexed, blah blah blah
     is_using = var_data.is_using
     is_del = var_data.is_del
     is_out = var_data.is_out
@@ -586,6 +636,7 @@ def check_variable(tokenized: List[Token], i: int, var_data: VarData = VarData.d
             PyscriptSyntaxError("Invalid Syntax", True)  # Default argument values come later
         return PT_ASSIGNMENT, []
     elif tokenized[i - 1].val == KW_OUTER or tokenized[i - 1].val == KW_SCOPE_RESOLUTION:
+        # outer x or outer outer x mean that it is accessed from a previous scope
         return PT_GLOBAL, []
     elif tokenized[i - 1].type == TT_EQUALS:
         if tokenized[i + 1].type != TT_INDEX:
@@ -1156,7 +1207,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                 name: List[Token] = sections[1]
                 if len(name) != 1:
                     PyscriptSyntaxError("Invalid Syntax", True)
-                func: Variable = create_var(name[0].val, 0, True, True)[-1]
+                func: Variable = create_var(name[0].val, 0, [True, True], True)[-1]
                 args = []
                 for var in argument_section:
                     if len(var) == 0 and len(argument_section) == 1:
@@ -1202,12 +1253,25 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                 return None, KW_RETURN, r_value
             if token.val == KW_IMPORT:
                 statement: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_AS, raw[i+1-count:])
-                r_val: str = ""
+                from_statement: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_FROM, raw[i+1-count:])
+                alias: str = ""
                 if len(statement) > 1:
-                    if len(statement[1]) != 1:
+                    if len(statement[1]) != 1 or len(from_statement) > 1:
                         PyscriptSyntaxError("Invalid Syntax", True)
-                    r_val = statement[1][0].val
-                return None, KW_IMPORT, make_path(statement[0]), r_val
+                    alias = statement[1][0].val
+                things_to_import = []
+                if len(from_statement) > 1:
+                    statement[0] = from_statement[1]
+                    statement.append(from_statement[0])
+                    things_to_import: List[List[Token]] = split_list_by_token(TT_COMMA, TT_COMMA, statement[1])
+                    for i, tokenized_things in enumerate(things_to_import):
+                        if len(tokenized_things) != 1:
+                            PyscriptSyntaxError("Invalid Syntax", True)
+                        if tokenized_things[0].type != TT_VAR:
+                            PyscriptSyntaxError("Invalid Syntax", True)
+                        things_to_import[i] = tokenized_things[0].val
+                    print(things_to_import)
+                return None, KW_IMPORT, make_path(statement[0]), alias, things_to_import
             if token.val == KW_INDESTRUCTIBLE:
                 if i < len(tokenized) - 1:
                     indestructible_flag = True
@@ -1290,7 +1354,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                         accessed = loc_var
                         break
                 if accessed is not None:
-                    create_var("0"+accessed.name, 0, True, True, accessed.extra_args, accessed.run_func,
+                    create_var("0"+accessed.name, 0, [True, True], True, accessed.extra_args, accessed.run_func,
                                accessed.r_value)
                     imported = True
                     imported_var = "0"+accessed.name

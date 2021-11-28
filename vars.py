@@ -135,7 +135,7 @@ class Variable:
             running_function = True
             new_vars.clear()
             for var, value in kwargs.items():
-                set_var(var, value, False)
+                set_var(var, value, [False, False])
             r_value = self.run_func(self.extra_args[0], RunData.default.set_attribute("original", True))
             mix_scopes()
             running_function = False
@@ -184,7 +184,9 @@ class Variable:
         funcs.remove(other.name)
 
 
-def create_var(name, value, readonly=False, is_callable=False, extra_args=None, run_func=None, r_value=None):
+def create_var(name, value, readonly=None, is_callable=False, extra_args=None, run_func=None, r_value=None):
+    if readonly is None:
+        readonly = [False, False]
     if extra_args is None:
         extra_args = []
     var = Variable(name, value, readonly, is_callable, extra_args, run_func, r_value)
@@ -226,7 +228,9 @@ def search_for_var(name):
         current_var = -1
 
 
-def set_var(name, value, readonly=False):
+def set_var(name, value, readonly=None):
+    if readonly is None:
+        readonly = [False, False]
     search_for_var(name)
     if not running_function:
         if current_var != -1:
