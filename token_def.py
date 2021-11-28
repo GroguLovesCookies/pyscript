@@ -12,3 +12,7 @@ class TokDef:
         self.name = name
         self.definition = definition
         TokDef.all_tok_defs.append(self)
+
+    def destroy(self):
+        TokDef.all_tok_defs.remove(self)
+        del self

@@ -6,8 +6,15 @@ let be be to
 
 rename inline func to infunc
 
+rem_keyword let
+rem_keyword be
+
 const a = 10
 
+rem_keyword const
+
+const b = 20 # NameError as const has been deleted
+# let del be rem # NameError as let and be have been deleted
 # a = 10 # Gives Assignment Error as a is readonly
 # del a # Gives SyntaxError as a is indestructible
 

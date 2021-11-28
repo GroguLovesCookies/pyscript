@@ -97,13 +97,15 @@ KW_INLINE = "inline"
 KW_INDESTRUCTIBLE = "indestructible"
 KW_LET = "let"
 KW_BE = "be"
+KW_REM_KW = "rem_keyword"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
                   KW_CALL: TT_KEYWORD, KW_IN: None, KW_NOT_IN: None, KW_USING: TT_KEYWORD, KW_DEL: TT_KEYWORD,
                   KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None, KW_FOR: TT_KEYWORD, KW_FUNC: TT_KEYWORD,
                   KW_EXTERN: TT_KEYWORD, KW_RETURN: TT_KEYWORD, KW_IMPORT: TT_KEYWORD, KW_AS: TT_KEYWORD,
-                  KW_INLINE: TT_KEYWORD, KW_INDESTRUCTIBLE: TT_KEYWORD, KW_LET: TT_KEYWORD, KW_BE: TT_KEYWORD}
+                  KW_INLINE: TT_KEYWORD, KW_INDESTRUCTIBLE: TT_KEYWORD, KW_LET: TT_KEYWORD, KW_BE: TT_KEYWORD,
+                  KW_REM_KW: TT_KEYWORD}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -252,6 +254,7 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
         return results
     else:
         # Set initial state
+        is_remove: bool = False
         tokens: List[Token] = []
         i: int = 0
         multiplier: int = 1
@@ -438,6 +441,8 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
 
                 # Check if word is keyword or variable
                 if name in KEYWORDS.keys():
+                    if name == KW_REM_KW:
+                        is_remove = True
                     kw_type: str = KEYWORDS[name]
                     if kw_type == TT_BOOL:
                         if name == "True":
@@ -450,7 +455,7 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
                     tokens.append(Token(kw_type, name))
                 else:
                     token_definition = TokDef.FindTokDef(name)
-                    if token_definition is None:
+                    if token_definition is None or is_remove:
                         tokens.append(Token(TT_VAR, name))
                     else:
                         for tok in token_definition.definition:
@@ -810,7 +815,7 @@ def pre_parse(tokenized: List[Token], extra_vars=None):
     i: int = 0
     while i < len(tokenized):
         token: Token = tokenized[i]
-        if token.val in [KW_LABEL, KW_JUMP, KW_CALL, KW_DEF_LABEL, KW_IMPORT, KW_LET]:
+        if token.val in [KW_LABEL, KW_JUMP, KW_CALL, KW_DEF_LABEL, KW_IMPORT, KW_LET, KW_REM_KW]:
             return
         if token.type == TT_PERIOD:
             if tokenized[i+1].val == TT_LPAREN:
@@ -1221,7 +1226,22 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                 if name.type != TT_VAR:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 return TokDef(name.val, definition)
+            if token.val == KW_REM_KW:
+                if i >= len(tokenized)-1:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                kw_to_remove = raw[i+1-count:]
+                if len(kw_to_remove) != 1:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                tok_def: TokDef = TokDef.FindTokDef(kw_to_remove[0].val)
+                if tok_def is None:
+                    if kw_to_remove[0].val not in KEYWORDS.keys():
+                        PyscriptSyntaxError("Invalid Syntax", True)
 
+                    del KEYWORDS[kw_to_remove[0].val]
+                    return ValueNode(0)
+                tok_def.destroy()
+
+                return ValueNode(1)
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
                 if tokenized[-1].type != TT_COLON_END:
