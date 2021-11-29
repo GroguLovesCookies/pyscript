@@ -1,8 +1,3 @@
 extern "print.py" func val -> output
 extern "print.py" func prompt -> get_input -> val
 test_var = 20
-
-if __name__ == "__main__":
-    output.output("output.pyscript is being run")
-if __name__ == "__import__":
-    output.output("output.pyscript is being imported")

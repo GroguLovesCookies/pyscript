@@ -317,6 +317,9 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                                             lib_name = os.path.split(os.path.splitext(parsed[2])[0])[-1]
                                             if lib_name in un_ops:
                                                 un_ops.remove(lib_name)
+                                            for var in additional_vars:
+                                                if var.name in un_ops:
+                                                    un_ops.remove(var.name)
                                         else:
                                             lib_name = parsed[3]
                             if len(parsed[4]) == 0:
@@ -350,6 +353,7 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
 
 
 filename: str = "math_test.pyscript"
+default_configurations: str = "defaults.txt"
 timing: bool = False
 if len(sys.argv) > 1:
     filename: str = sys.argv[1]
@@ -359,6 +363,7 @@ if len(sys.argv) > 2:
     if not timing:
         print("Could not recognise command")
         sys.exit(1)
+
 
 with open("pyscript/" + filename, "r+") as f:
     program: List[str] = []
@@ -371,4 +376,7 @@ with open("pyscript/" + filename, "r+") as f:
         print(f"Time taken: {elapsed_time}")
     else:
         set_var("__name__", "__main__", [True, True])
+        with open(default_configurations, "r") as config:
+            for library in config.readlines():
+                run([f"import {library}"])
         run(program, RunData(False, True))
