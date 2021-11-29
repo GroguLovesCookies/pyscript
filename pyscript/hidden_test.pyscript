@@ -1,0 +1,3 @@
+# output(hidden_var) # NameError: variable hidden_var does not exist (as it is hidden)
+# greet() # NameError: Function 'greet' does not exist (as it is a hidden func)
+output("Everything Good")

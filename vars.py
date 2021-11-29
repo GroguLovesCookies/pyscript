@@ -135,7 +135,7 @@ class Variable:
             running_function = True
             new_vars.clear()
             for var, value in kwargs.items():
-                set_var(var, value, [False, False])
+                set_var(var, value, [False, False, False])
             r_value = self.run_func(self.extra_args[0], RunData.default.set_attribute("original", True))
             mix_scopes()
             running_function = False
@@ -230,7 +230,7 @@ def search_for_var(name):
 
 def set_var(name, value, readonly=None):
     if readonly is None:
-        readonly = [False, False]
+        readonly = [False, False, False]
     search_for_var(name)
     if not running_function:
         if current_var != -1:

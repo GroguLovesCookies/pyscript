@@ -101,6 +101,7 @@ KW_REM_KW = "rem_keyword"
 KW_FROM = "from"
 KW_SWITCH = "switch"
 KW_CASE = "case"
+KW_HIDDEN = "hidden"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
@@ -108,7 +109,8 @@ KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, 
                   KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None, KW_FOR: TT_KEYWORD, KW_FUNC: TT_KEYWORD,
                   KW_EXTERN: TT_KEYWORD, KW_RETURN: TT_KEYWORD, KW_IMPORT: TT_KEYWORD, KW_AS: TT_KEYWORD,
                   KW_INLINE: TT_KEYWORD, KW_INDESTRUCTIBLE: TT_KEYWORD, KW_LET: TT_KEYWORD, KW_BE: TT_KEYWORD,
-                  KW_REM_KW: TT_KEYWORD, KW_FROM: TT_KEYWORD, KW_SWITCH: TT_KEYWORD, KW_CASE: TT_KEYWORD}
+                  KW_REM_KW: TT_KEYWORD, KW_FROM: TT_KEYWORD, KW_SWITCH: TT_KEYWORD, KW_CASE: TT_KEYWORD,
+                  KW_HIDDEN: TT_KEYWORD}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -952,6 +954,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
     i: int = 0
     readonly_flag: bool = False
     indestructible_flag: bool = False
+    hidden_flag: bool = False
     imported: bool = False
     imported_var: str = ""
     while i < len(tokenized):
@@ -1083,7 +1086,8 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                         bracketized = unwrap_unary(bracketized)
                         value = calculate(parse(bracketized, extra_vars=extra_vars))
                         result = BinOpNode(name, value, "=", lambda a, b: set_var(a, b, [readonly_flag,
-                                                                                         indestructible_flag]))
+                                                                                         indestructible_flag,
+                                                                                         hidden_flag]))
                         return result
                     elif previous.pseudo_type == PT_INDEX_ASSIGNMENT:
                         name: str = previous.val
@@ -1201,15 +1205,18 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                 definition: List[Token] = raw[i + 1 - count:len(raw) - 1]
                 decorators: List[Token] = raw[:i]
                 is_inline: bool = False
+                is_hidden: bool = False
                 for decorator in decorators:
                     if decorator.val == KW_INLINE:
                         is_inline = True
+                    elif decorator.val == KW_HIDDEN:
+                        is_hidden = True
                 sections: List[List[Token]] = split_list_by_token(TT_INSERTION, TT_INSERTION, definition)
                 argument_section: List[List[Token]] = split_list_by_token(TT_COMMA, TT_COMMA, sections[0])
                 name: List[Token] = sections[1]
                 if len(name) != 1:
                     PyscriptSyntaxError("Invalid Syntax", True)
-                func: Variable = create_var(name[0].val, 0, [True, True], True)[-1]
+                func: Variable = create_var(name[0].val, 0, [True, True, is_hidden], True)[-1]
                 args = []
                 for var in argument_section:
                     if len(var) == 0 and len(argument_section) == 1:
@@ -1326,6 +1333,11 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                     PyscriptSyntaxError("Missing colon at end of 'case' statement", True)
                 pre_parse(raw, extra_vars)
                 return None, KW_CASE, calculate(parse(raw[i+1-count:len(raw)-1]))
+            if token.val == KW_HIDDEN:
+                if i < len(tokenized) - 1:
+                    hidden_flag = True
+                else:
+                    PyscriptSyntaxError("Invalid Syntax", True)
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
                 if tokenized[-1].type != TT_COLON_END:

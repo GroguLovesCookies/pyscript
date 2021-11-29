@@ -292,9 +292,9 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                                         for k, line in enumerate(chunk):
                                             chunk[k] = line.strip(" ").strip("\t")
                                         if parsed[5] is None:
-                                            create_var(name.val, 0, [True, True], True, [chunk, *parsed[3]], exec)
+                                            create_var(name.val, 0, [True, True, False], True, [chunk, *parsed[3]], exec)
                                         else:
-                                            create_var(name.val, 0, [True, True], True, [chunk, *parsed[3]], exec,
+                                            create_var(name.val, 0, [True, True, False], True, [chunk, *parsed[3]], exec,
                                                        parsed[5][0].val)
                     i += 1
                     new_global_line += 1
@@ -318,25 +318,31 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                                                 lib_name = os.path.split(os.path.splitext(parsed[2])[0])[-1]
                                                 if lib_name in un_ops:
                                                     un_ops.remove(lib_name)
-                                                for var in additional_vars:
+                                                for var_import_index, var in enumerate(additional_vars):
                                                     if var.name in un_ops:
                                                         un_ops.remove(var.name)
+                                                    if var.readonly[2]:
+                                                        del additional_vars[var_import_index]
                                             else:
                                                 lib_name = parsed[3]
                             else:
                                 with SetReset("__name__", "__import__"):
                                     run(lib.read().split("\n"))
+                                    for var_import_index, var in enumerate(global_vars):
+                                        if var.readonly[2]:
+                                            del global_vars[var_import_index]
 
                             if type(parsed[4]) == list:
                                 if len(parsed[4]) == 0:
-                                    create_var(lib_name, 0, [True, True], extra_args=additional_vars)
+                                    create_var(lib_name, 0, [True, True, False], extra_args=additional_vars)
                                 else:
                                     for name in parsed[4]:
                                         fetched = additional_vars[additional_vars
                                                                   .interpolation_search(0, len(additional_vars) - 1,
                                                                                         name)]
-                                        create_var(fetched.name, fetched.value, fetched.readonly, fetched.is_callable,
-                                                   fetched.extra_args, fetched.run_func, fetched.r_value)
+                                        if not fetched.readonly[2]:
+                                            create_var(fetched.name, fetched.value, fetched.readonly, fetched.is_callable,
+                                                       fetched.extra_args, fetched.run_func, fetched.r_value)
                     i += 1
                     new_global_line += 1
                     continue
@@ -418,7 +424,7 @@ with open("pyscript/" + filename, "r+") as f:
         elapsed_time = time.time() - start_time
         print(f"Time taken: {elapsed_time}")
     else:
-        set_var("__name__", "__main__", [True, True])
+        set_var("__name__", "__main__", [True, True, True])
         with open(default_configurations, "r") as config:
             for library in config.readlines():
                 run([f"import * from {library}"])
