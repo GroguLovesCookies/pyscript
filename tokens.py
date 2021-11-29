@@ -1056,7 +1056,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                     bracketized = unwrap_unary(bracketized)
                     args_dict[func_to_run.extra_args[index + (1 if func_to_run.run_func == exec else 2)]] = calculate(
                         parse(bracketized, extra_vars=extra_vars))
-                    i += len(arg)+1
+                    i += len(bracketized)+1
                 if len(args_dict) != arg_count:
                     PyscriptSyntaxError(
                         f"Function '{func_to_run.name}' expects {arg_count} arguments but {len(args_dict)} were "
@@ -1268,9 +1268,12 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                         if len(tokenized_things) != 1:
                             PyscriptSyntaxError("Invalid Syntax", True)
                         if tokenized_things[0].type != TT_VAR:
-                            PyscriptSyntaxError("Invalid Syntax", True)
-                        things_to_import[i] = tokenized_things[0].val
-                    print(things_to_import)
+                            if tokenized_things[0].val == TT_MUL:
+                                things_to_import = True
+                            else:
+                                PyscriptSyntaxError("Invalid Syntax", True)
+                        if type(things_to_import) == list:
+                            things_to_import[i] = tokenized_things[0].val
                 return None, KW_IMPORT, make_path(statement[0]), alias, things_to_import
             if token.val == KW_INDESTRUCTIBLE:
                 if i < len(tokenized) - 1:
@@ -1358,10 +1361,11 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                                accessed.r_value)
                     imported = True
                     imported_var = "0"+accessed.name
+                else:
+                    PyscriptSyntaxError("Invalid Syntax", True)
         elif token.pseudo_type == PT_CALLED:
             if token.val not in funcs:
                 PyscriptSyntaxError(f"Variable {token.val} is not callable", True)
-
         i += 1
     return result
 

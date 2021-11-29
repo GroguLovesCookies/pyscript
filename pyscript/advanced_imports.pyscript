@@ -1,1 +1,1 @@
-output.output(math.pow(2, 2))
+output(pow(2, 2))

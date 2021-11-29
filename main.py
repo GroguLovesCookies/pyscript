@@ -307,29 +307,35 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                 if parsed[1] == "import":
                     if os.path.exists("pyscript/" + parsed[2]):
                         with open("pyscript/" + parsed[2]) as lib:
-                            with Scope():
+                            if type(parsed[4]) == list:
+                                with Scope():
+                                    with SetReset("__name__", "__import__"):
+                                        run(lib.read().split("\n"))
+                                        additional_vars = global_vars.__copy__()
+                                        if len(parsed[4]) == 0:
+                                            funcs.clear()
+                                            if parsed[3] == "":
+                                                lib_name = os.path.split(os.path.splitext(parsed[2])[0])[-1]
+                                                if lib_name in un_ops:
+                                                    un_ops.remove(lib_name)
+                                                for var in additional_vars:
+                                                    if var.name in un_ops:
+                                                        un_ops.remove(var.name)
+                                            else:
+                                                lib_name = parsed[3]
+                            else:
                                 with SetReset("__name__", "__import__"):
                                     run(lib.read().split("\n"))
-                                    additional_vars = global_vars.__copy__()
-                                    if len(parsed[4]) == 0:
-                                        funcs.clear()
-                                        if parsed[3] == "":
-                                            lib_name = os.path.split(os.path.splitext(parsed[2])[0])[-1]
-                                            if lib_name in un_ops:
-                                                un_ops.remove(lib_name)
-                                            for var in additional_vars:
-                                                if var.name in un_ops:
-                                                    un_ops.remove(var.name)
-                                        else:
-                                            lib_name = parsed[3]
-                            if len(parsed[4]) == 0:
-                                create_var(lib_name, 0, [True, True], extra_args=additional_vars)
-                            else:
-                                for name in parsed[4]:
-                                    fetched = additional_vars[additional_vars
-                                                              .interpolation_search(0, len(additional_vars) - 1, name)]
-                                    create_var(fetched.name, fetched.value, fetched.readonly, fetched.is_callable,
-                                               fetched.extra_args, fetched.run_func, fetched.r_value)
+
+                            if type(parsed[4]) == list:
+                                if len(parsed[4]) == 0:
+                                    create_var(lib_name, 0, [True, True], extra_args=additional_vars)
+                                else:
+                                    for name in parsed[4]:
+                                        fetched = additional_vars[additional_vars
+                                                                  .interpolation_search(0, len(additional_vars) - 1, name)]
+                                        create_var(fetched.name, fetched.value, fetched.readonly, fetched.is_callable,
+                                                   fetched.extra_args, fetched.run_func, fetched.r_value)
                     i += 1
                     new_global_line += 1
                     continue
@@ -378,5 +384,5 @@ with open("pyscript/" + filename, "r+") as f:
         set_var("__name__", "__main__", [True, True])
         with open(default_configurations, "r") as config:
             for library in config.readlines():
-                run([f"import {library}"])
+                run([f"import * from {library}"])
         run(program, RunData(False, True))
