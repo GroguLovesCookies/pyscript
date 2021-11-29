@@ -1,4 +1,4 @@
-readonly switch_var = 0
+readonly switch_var = 3
 
 switch switch_var:
     case 1:
@@ -7,3 +7,6 @@ switch switch_var:
         output("Python")
     case 3:
         output("C++")
+        cpp = True
+
+output(var_exists("cpp"))
