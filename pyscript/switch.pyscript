@@ -1,0 +1,9 @@
+readonly switch_var = 0
+
+switch switch_var:
+    case 1:
+        output("Pyscript")
+    case 2:
+        output("Python")
+    case 3:
+        output("C++")

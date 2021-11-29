@@ -333,11 +333,48 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                                 else:
                                     for name in parsed[4]:
                                         fetched = additional_vars[additional_vars
-                                                                  .interpolation_search(0, len(additional_vars) - 1, name)]
+                                                                  .interpolation_search(0, len(additional_vars) - 1,
+                                                                                        name)]
                                         create_var(fetched.name, fetched.value, fetched.readonly, fetched.is_callable,
                                                    fetched.extra_args, fetched.run_func, fetched.r_value)
                     i += 1
                     new_global_line += 1
+                    continue
+                if parsed[1] == "switch":
+                    switch_chunk = find_chunk(i, lines)
+                    tokenized_switch_chunk = [read(switch_line.strip("\n"))[0] for switch_line in switch_chunk]
+                    case_i = 0
+                    found = False
+                    found_chunk = []
+                    while case_i < len(tokenized_switch_chunk) and not found:
+                        if tokenized_switch_chunk[case_i][0].val != "case":
+                            PyscriptSyntaxError("Invalid Syntax", True)
+                        if parse(tokenized_switch_chunk[case_i])[2] == parsed[2]:
+                            found = True
+                            case_i += 1
+                            while case_i < len(tokenized_switch_chunk) and \
+                                    tokenized_switch_chunk[case_i][0].val != "case":
+                                found_chunk.append(switch_chunk[case_i])
+                                case_i += 1
+                            if len(found_chunk) == 0:
+                                PyscriptSyntaxError("Invalid Syntax", True)
+                            continue
+                        case_i += 1
+                        while case_i < len(tokenized_switch_chunk) and \
+                                tokenized_switch_chunk[case_i][0].val != "case":
+                            case_i += 1
+                    val = run(found_chunk)
+                    if type(val) == list:
+                        if val[0] == "jump":
+                            new_global_line += val[1] - i
+                            i = val[1]
+                        elif val[0] == "return":
+                            if original:
+                                return val[1]
+                            else:
+                                return val
+                    i += len(switch_chunk) + 1
+                    new_global_line += len(switch_chunk) + 1
                     continue
 
         elif type(parsed) == Label:

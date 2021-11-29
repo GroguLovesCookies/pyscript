@@ -99,6 +99,8 @@ KW_LET = "let"
 KW_BE = "be"
 KW_REM_KW = "rem_keyword"
 KW_FROM = "from"
+KW_SWITCH = "switch"
+KW_CASE = "case"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
@@ -106,7 +108,7 @@ KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, 
                   KW_LOCAL: TT_KEYWORD, KW_OUT: TT_KEYWORD, KW_OUTER: None, KW_FOR: TT_KEYWORD, KW_FUNC: TT_KEYWORD,
                   KW_EXTERN: TT_KEYWORD, KW_RETURN: TT_KEYWORD, KW_IMPORT: TT_KEYWORD, KW_AS: TT_KEYWORD,
                   KW_INLINE: TT_KEYWORD, KW_INDESTRUCTIBLE: TT_KEYWORD, KW_LET: TT_KEYWORD, KW_BE: TT_KEYWORD,
-                  KW_REM_KW: TT_KEYWORD, KW_FROM: TT_KEYWORD}
+                  KW_REM_KW: TT_KEYWORD, KW_FROM: TT_KEYWORD, KW_SWITCH: TT_KEYWORD, KW_CASE: TT_KEYWORD}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -1309,6 +1311,21 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                 tok_def.destroy()
 
                 return ValueNode(1)
+            if token.val == KW_SWITCH:
+                if i >= len(tokenized) - 1:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                if raw[-1].type != TT_COLON_END:
+                    PyscriptSyntaxError("Missing colon at end of 'switch' statement", True)
+                pre_parse(raw, extra_vars)
+                switch_value = calculate(parse(raw[i+1-count:len(raw)-1]))
+                return None, KW_SWITCH, switch_value
+            if token.val == KW_CASE:
+                if i >= len(tokenized) - 1:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+                if raw[-1].type != TT_COLON_END:
+                    PyscriptSyntaxError("Missing colon at end of 'case' statement", True)
+                pre_parse(raw, extra_vars)
+                return None, KW_CASE, calculate(parse(raw[i+1-count:len(raw)-1]))
         elif token.type == TT_BRANCH:
             if token.val == KW_IF:
                 if tokenized[-1].type != TT_COLON_END:
