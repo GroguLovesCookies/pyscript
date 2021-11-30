@@ -102,6 +102,7 @@ KW_FROM = "from"
 KW_SWITCH = "switch"
 KW_CASE = "case"
 KW_HIDDEN = "hidden"
+KW_ASSERT = "assert"
 KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, KW_AND: None, KW_OR: None, KW_XOR: None,
                   KW_NOT: None, KW_IF: TT_BRANCH, KW_ELSE: TT_BRANCH, KW_WHILE: TT_WHILE, KW_CONTINUE: TT_KEYWORD,
                   KW_BREAK: TT_KEYWORD, KW_LABEL: TT_KEYWORD, KW_DEF_LABEL: TT_KEYWORD, KW_JUMP: TT_KEYWORD,
@@ -110,7 +111,7 @@ KEYWORDS: Dict = {KW_READONLY: TT_KEYWORD, KW_TRUE: TT_BOOL, KW_FALSE: TT_BOOL, 
                   KW_EXTERN: TT_KEYWORD, KW_RETURN: TT_KEYWORD, KW_IMPORT: TT_KEYWORD, KW_AS: TT_KEYWORD,
                   KW_INLINE: TT_KEYWORD, KW_INDESTRUCTIBLE: TT_KEYWORD, KW_LET: TT_KEYWORD, KW_BE: TT_KEYWORD,
                   KW_REM_KW: TT_KEYWORD, KW_FROM: TT_KEYWORD, KW_SWITCH: TT_KEYWORD, KW_CASE: TT_KEYWORD,
-                  KW_HIDDEN: TT_KEYWORD}
+                  KW_HIDDEN: TT_KEYWORD, KW_ASSERT: TT_KEYWORD}
 
 compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 
@@ -1336,6 +1337,17 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
             if token.val == KW_HIDDEN:
                 if i < len(tokenized) - 1:
                     hidden_flag = True
+                else:
+                    PyscriptSyntaxError("Invalid Syntax", True)
+            if token.val == KW_ASSERT:
+                if i < len(tokenized) - 1:
+                    pre_parse(raw)
+                    result = calculate(parse(raw[i+1-count:]))
+                    if type(result) != bool:
+                        PyscriptSyntaxError("Invalid Syntax", True)
+                    if not result:
+                        PyscriptAssertionError(True)
+                    return ValueNode(0)
                 else:
                     PyscriptSyntaxError("Invalid Syntax", True)
         elif token.type == TT_BRANCH:
