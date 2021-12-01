@@ -61,6 +61,7 @@ PT_OUT = "PUSHING_OUT"
 PT_GLOBAL = "GLOBAL"
 PT_ARGUMENT = "ARG"
 PT_CALLED = "CALLED"
+PT_ACCESSED = "ACCESSED"
 
 # Define keywords
 KW_READONLY = "readonly"
@@ -874,10 +875,8 @@ def pre_parse(tokenized: List[Token], extra_vars=None):
         if token.val in [KW_LABEL, KW_JUMP, KW_CALL, KW_DEF_LABEL, KW_IMPORT, KW_LET, KW_REM_KW]:
             return
         if token.type == TT_PERIOD:
-            if tokenized[i+1].val == TT_LPAREN:
-                i += get_closing(tokenized[i+1:])+1
-            else:
-                i += 3
+            tokenized[i-1].pseudo_type = PT_ACCESSED
+            i += 2
             continue
         if i < len(tokenized) - 1:
             if tokenized[i+1].type == TT_PERIOD:
@@ -1375,7 +1374,10 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                 return condition, TT_WHILE
         elif token.type == TT_PERIOD:
             if next_token.type == TT_VAR:
-                var: Variable = get_var(previous.val)
+                if type(previous.val) != Variable:
+                    var: Variable = get_var(previous.val)
+                else:
+                    var: Variable = previous.val
                 accessed: Variable = None
                 item_to_search: str = next_token.val
                 for loc_var in var.extra_args:
@@ -1383,9 +1385,14 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                         accessed = loc_var
                         break
                 if accessed is not None:
-                    tokenized[i+1].type = TT_INT
-                    tokenized[i+1].val = accessed.value
-                    tokenized[i+1].pseudo_type = None
+                    if tokenized[i+1].pseudo_type != PT_ACCESSED:
+                        tokenized[i+1].type = TT_INT
+                        tokenized[i+1].val = accessed.value
+                        tokenized[i+1].pseudo_type = None
+                    else:
+                        tokenized[i + 1].type = TT_INT
+                        tokenized[i + 1].val = accessed
+                        tokenized[i + 1].pseudo_type = None
                     del tokenized[i-1:i+1]
                     return parse(tokenized)
             elif next_token.type is None:

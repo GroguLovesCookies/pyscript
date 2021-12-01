@@ -1,0 +1,3 @@
+import something_to_import as STI
+
+output(10 + STI.OTI.test_var)

@@ -1,0 +1,2 @@
+import other_to_import as OTI
+new_variable = 10
