@@ -940,7 +940,8 @@ def pre_parse(tokenized: List[Token], extra_vars=None):
         i += 1
 
 
-def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra_vars=None) -> Union[Node, Tuple, Label]:
+def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra_vars=None,
+          is_nested_call: bool = False) -> Union[Node, Tuple, Label, TokDef]:
     if extra_vars is None:
         extra_vars = {}
     pre_parse(tokenized, extra_vars)
@@ -1068,9 +1069,34 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                         f"given", True)
                 inline_flag: bool = func_to_run.extra_args[1 if func_to_run.run_func != exec else 0]
                 if not inline_flag or func_to_run.run_func == exec:
+                    if is_nested_call:
+                        args_dict.update(extra_vars)
                     result = UnOpNode(func_to_run, "run", lambda a: a.run(args_dict))
                 else:
+                    if is_nested_call:
+                        args_dict.update(extra_vars)
                     result = parse(func_to_run.get_inline_form(args_dict, read), extra_vars=args_dict)
+                if i+2 < len(tokenized):
+                    if tokenized[i+2].val == TT_LPAREN:
+                        function_to_call_again = calculate(result)
+                        if type(function_to_call_again) != Variable:
+                            PyscriptSyntaxError(f"Result of {func_to_run.name} is not callable")
+                        created = set_var("00"+function_to_call_again.name, function_to_call_again)[1]
+                        un_ops.add(created.name)
+                        funcs.add(created.name)
+                        value_to_calculate = raw[i+1-count:]
+                        value_to_calculate[0].val = created.name
+                        value_to_calculate[0].type = None
+                        value_to_calculate[0].pseudo_type = PT_CALLED
+                        value_to_calculate[0].extra_params = [bracket_extract(tokenized[i+2:])]
+                        del value_to_calculate[-1]
+                        bracketized: List[Token] = prep_unary(value_to_calculate)
+                        bracketized, unused = bracketize(bracketized)
+                        bracketized = unwrap_unary(bracketized)
+                        result = parse(bracketized, extra_vars=args_dict, is_nested_call=True)
+                        remove_var(created.name)
+                        un_ops.remove(created.name)
+                        funcs.remove(created.name)
                 if imported:
                     remove_var(imported_var)
                     funcs.remove(token.val)

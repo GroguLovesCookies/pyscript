@@ -1,0 +1,6 @@
+func a, b, c -> make_quadratic_equation:
+    inline func x -> evaluate:
+        return a * (x^2) + b * x + c
+    return evaluate
+
+output(make_quadratic_equation(2, 3, 1)(20))
