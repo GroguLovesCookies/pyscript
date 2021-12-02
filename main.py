@@ -310,27 +310,33 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                             if type(parsed[4]) == list:
                                 with Scope():
                                     with SetReset("__name__", "__import__"):
+                                        with open(default_configurations, "r") as config:
+                                            for library in config.readlines():
+                                                run([f"import * from {library}"])
                                         run(lib.read().split("\n"))
                                         additional_vars = global_vars.__copy__()
                                         if len(parsed[4]) == 0:
                                             if parsed[3] == "":
                                                 lib_name = os.path.split(os.path.splitext(parsed[2])[0])[-1]
-                                                if lib_name in un_ops:
-                                                    un_ops.remove(lib_name)
-
-                                                var_import_index = 0
-                                                while var_import_index < len(global_vars):
-                                                    var = global_vars[var_import_index]
-                                                    if var.name in un_ops:
-                                                        un_ops.remove(var.name)
-                                                    if var.name in funcs:
-                                                        funcs.remove(var.name)
-                                                    if var.readonly[2]:
-                                                        del global_vars[var_import_index]
-                                                        var_import_index -= 1
-                                                    var_import_index += 1
                                             else:
                                                 lib_name = parsed[3]
+                                            if lib_name in un_ops:
+                                                un_ops.remove(lib_name)
+
+                                            var_import_index = 0
+                                            while var_import_index < len(global_vars):
+                                                var = global_vars[var_import_index]
+                                                if var.name in un_ops:
+                                                    un_ops.remove(var.name)
+                                                if var.name in funcs:
+                                                    funcs.remove(var.name)
+                                                if var.readonly[2]:
+                                                    del global_vars[var_import_index]
+                                                    var_import_index -= 1
+                                                var_import_index += 1
+                                with open(default_configurations, "r") as config:
+                                    for library in config.readlines():
+                                        run([f"import * from {library}"])
                             else:
                                 with SetReset("__name__", "__import__"):
                                     run(lib.read().split("\n"))

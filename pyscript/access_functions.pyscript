@@ -1,0 +1,3 @@
+import advanced_functions as ad_funcs
+
+output(ad_funcs.make_quadratic_equation(2, 3, 1)(20))

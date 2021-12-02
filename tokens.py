@@ -1084,7 +1084,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                         created = set_var("00"+function_to_call_again.name, function_to_call_again)[1]
                         un_ops.add(created.name)
                         funcs.add(created.name)
-                        value_to_calculate = raw[i+1-count:]
+                        value_to_calculate = bracket_extract(raw[i+1-count:])
                         value_to_calculate[0].val = created.name
                         value_to_calculate[0].type = None
                         value_to_calculate[0].pseudo_type = PT_CALLED
