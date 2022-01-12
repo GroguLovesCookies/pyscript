@@ -130,14 +130,14 @@ class Variable:
         global running_function, new_vars
         if not self.is_callable:
             PyscriptSyntaxError(f"Variable {self.name} is not callable", True)
-        cached.insert(0, SortedList())
+        start_new_scope()
         if self.run_func != exec:
             running_function = True
             new_vars.clear()
             for var, value in kwargs.items():
                 set_var(var, value, [False, False, False])
             r_value = self.run_func(self.extra_args[0], RunData.default.set_attribute("original", True))
-            mix_scopes()
+            revert_from_scope()
             running_function = False
             return r_value
         else:
@@ -149,7 +149,7 @@ class Variable:
                     str_to_run.insert(0, f'{var} = "{value}"')
                 loc = {}
                 self.run_func(";".join(str_to_run), globals(), loc)
-                mix_scopes()
+                revert_from_scope()
                 if self.r_value is not None:
                     if self.r_value in loc.keys():
                         return loc[self.r_value]

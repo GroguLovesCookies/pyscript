@@ -330,13 +330,14 @@ def run(lines: List[str], running_data: RunData = RunData.default, global_line: 
                                                     un_ops.remove(var.name)
                                                 if var.name in funcs:
                                                     funcs.remove(var.name)
-                                                if var.readonly[2]:
+                                                if var.readonly[2] and var.name != "__name__":
                                                     del global_vars[var_import_index]
                                                     var_import_index -= 1
                                                 var_import_index += 1
                                 with open(default_configurations, "r") as config:
                                     for library in config.readlines():
                                         run([f"import * from {library}"])
+                                set_var("__name__", "__main__", [True, True, True])
                             else:
                                 with SetReset("__name__", "__import__"):
                                     run(lib.read().split("\n"))
