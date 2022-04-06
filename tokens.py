@@ -11,7 +11,6 @@ from utility_classes.var_data import VarData
 from token_def import TokDef
 from shared_vars import *
 
-
 # Define tokens
 TT_PLUS = "PLUS"
 TT_MINUS = "MINUS"
@@ -120,7 +119,6 @@ compound_kws: Dict[str, List[str]] = {KW_NOT_IN: [KW_NOT, KW_IN]}
 types: List[str] = [TT_INT, TT_FLOAT, TT_STR, TT_LIST, TT_BOOL]
 hashable_types: List[str] = [TT_INT, TT_FLOAT, TT_STR, TT_BOOL]
 
-
 # Define operator list
 op_chars: List[chr] = ["+", "-", "*", "/", "^", "%", "=", ">", "<", "!", ":", ",", ";", "."]
 
@@ -135,9 +133,9 @@ class Token:
 
     def __init__(self, tok_type, val):
         self.val = val
-        self.type = tok_type
-        self.pseudo_type = None
-        self.extra_params: List = []
+        self.type = tok_type  # Type of token as defined above
+        self.pseudo_type = None  # Token Pseudo-type as defined above
+        self.extra_params: List = []  # Extra parameters
 
     def __repr__(self) -> str:
         if self.type is None:
@@ -146,10 +144,12 @@ class Token:
 
 
 def register_func(name):
+    """Add a function"""
     un_ops.add(name)
     funcs.add(name)
 
 
+# Helps global files access registering function
 func_to_register = register_func
 
 
@@ -218,7 +218,7 @@ def prep_unary(tokenized: List[Token]) -> List[Token]:
 
 def unwrap_unary(tokenized: List[Token]) -> List[Token]:
     """A function to unwrap and re-bracketize unary sequences"""
-    # Initalize
+    # Initialize
     i: int = 0
     # Loop
     while i < len(tokenized):
@@ -238,33 +238,43 @@ def unwrap_unary(tokenized: List[Token]) -> List[Token]:
 
 def split_list(text: str, character: str = " ", strip: bool = False) -> List[str]:
     """A function to split lists from text"""
-    splitted: List[str] = []
-    quote_ignore: bool = False
-    bracket_ignore: bool = False
-    current: str = ""
 
+    # Initialize
+    splitted: List[str] = []  # Output
+    quote_ignore: bool = False  # Tracks whether currently in a string
+    bracket_ignore: bool = False  # Tracks when currently in a list
+    current: str = ""  # Current section
+
+    # Read loop
     for char in text:
         if char == "\"":
+            # Toggle quote_ignore when encountering double quotes
             quote_ignore = not quote_ignore
             current += char
         elif char == "[":
+            # Start list when encountering [
             bracket_ignore = True
             current += char
         elif char == "]":
+            # End list when encountering ]
             bracket_ignore = False
             current += char
         elif char == character:
             # Not quote_ignore in order to ignore the split character if it
-            # occurs in  a string
+            # occurs in  a string.
             if not quote_ignore and not bracket_ignore:
                 splitted.append(current if not strip else current.strip())
                 current = ""
             else:
+                # If ignorable then add to section
                 current += char
         else:
+            # If it is a normal char add to section
             current += char
 
     if current != "":
+        # If there is a section left at the end,
+        # add to list
         splitted.append(current if not strip else current.strip())
 
     return splitted
@@ -273,7 +283,8 @@ def split_list(text: str, character: str = " ", strip: bool = False) -> List[str
 def get_list(text: str, i: int) -> Token:
     """A function to get a list from text"""
     # Read full list
-    listed: List[List[Token]] = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True, group_by=",")
+    listed: List[List[Token]] = read(text_extract(text[i:], opening="[", closing="]"), ignore_exception=True,
+                                     group_by=",")
     i = get_closing_text(text[i:], "[", "]") + i
     j: int = 0
     while j < len(listed):
@@ -337,8 +348,9 @@ def read(text: str, ignore_exception: bool = False, group_by: str = "") -> List[
                     if i == 0:
                         multiplier = -1
 
-                    # If the latest is an operator or an opening
-                    # bracket, it is a negative sign, not operator
+                    # If the latest is an operator, an opening
+                    # bracket, equals or return,
+                    # it is a negative sign, not operator
                     elif latest.type is None or latest.val in [TT_LPAREN, KW_RETURN] or latest.type == TT_EQUALS:
                         multiplier = -1
 
@@ -862,7 +874,7 @@ def make_path(pyscript_path: List[Token]) -> str:
         if len(section) != 1:
             PyscriptSyntaxError("Invalid Syntax", True)
         path += section[0].val
-        path += "/" if i < len(sections)-1 else ".pyscript"
+        path += "/" if i < len(sections) - 1 else ".pyscript"
     return path
 
 
@@ -875,11 +887,11 @@ def pre_parse(tokenized: List[Token], extra_vars=None):
         if token.val in [KW_LABEL, KW_JUMP, KW_CALL, KW_DEF_LABEL, KW_IMPORT, KW_LET, KW_REM_KW]:
             return
         if token.type == TT_PERIOD:
-            tokenized[i-1].pseudo_type = PT_ACCESSED
+            tokenized[i - 1].pseudo_type = PT_ACCESSED
             i += 2
             continue
         if i < len(tokenized) - 1:
-            if tokenized[i+1].type == TT_PERIOD:
+            if tokenized[i + 1].type == TT_PERIOD:
                 i += 1
                 continue
         if token.pseudo_type == PT_REFERENCE:
@@ -1048,10 +1060,10 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                 shift_scope_pointer(-1)
                 result = next_node
             if token.val in funcs:
-                func_to_run: Variable = get_var(token.val if not imported else "0"+token.val)
+                func_to_run: Variable = get_var(token.val if not imported else "0" + token.val)
                 if func_to_run == -1:
                     PyscriptNameError(f"Function '{token.val}' does not exist", True)
-                args_dict: Dict[str, ] = {}
+                args_dict: Dict[str,] = {}
                 arg_count: int = len(func_to_run.extra_args) - (1 if func_to_run.run_func == exec else 2)
                 args: List[List[Token]] = split_list_by_token(TT_COMMA, TT_COMMA, token.extra_params[0])
                 for index, arg in enumerate(args):
@@ -1062,7 +1074,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                     bracketized = unwrap_unary(bracketized)
                     args_dict[func_to_run.extra_args[index + (1 if func_to_run.run_func == exec else 2)]] = calculate(
                         parse(bracketized, extra_vars=extra_vars))
-                    i += len(bracketized)+1
+                    i += len(bracketized) + 1
                 if len(args_dict) != arg_count:
                     PyscriptSyntaxError(
                         f"Function '{func_to_run.name}' expects {arg_count} arguments but {len(args_dict)} were "
@@ -1076,19 +1088,19 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                     if is_nested_call:
                         args_dict.update(extra_vars)
                     result = parse(func_to_run.get_inline_form(args_dict, read), extra_vars=args_dict)
-                if i+2 < len(tokenized):
-                    if tokenized[i+2].val == TT_LPAREN:
+                if i + 2 < len(tokenized):
+                    if tokenized[i + 2].val == TT_LPAREN:
                         function_to_call_again = calculate(result)
                         if type(function_to_call_again) != Variable:
                             PyscriptSyntaxError(f"Result of {func_to_run.name} is not callable")
-                        created = set_var("00"+function_to_call_again.name, function_to_call_again)[1]
+                        created = set_var("00" + function_to_call_again.name, function_to_call_again)[1]
                         un_ops.add(created.name)
                         funcs.add(created.name)
-                        value_to_calculate = bracket_extract(raw[i+1-count:])
+                        value_to_calculate = bracket_extract(raw[i + 1 - count:])
                         value_to_calculate[0].val = created.name
                         value_to_calculate[0].type = None
                         value_to_calculate[0].pseudo_type = PT_CALLED
-                        value_to_calculate[0].extra_params = [bracket_extract(tokenized[i+2:])]
+                        value_to_calculate[0].extra_params = [bracket_extract(tokenized[i + 2:])]
                         del value_to_calculate[-1]
                         bracketized: List[Token] = prep_unary(value_to_calculate)
                         bracketized, unused = bracketize(bracketized)
@@ -1281,14 +1293,14 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                 funcs.add(name[0].val)
                 return None, KW_EXTERN, name[0].val, args, file_name, r_value
             if token.val == KW_RETURN:
-                bracketized: List[Token] = prep_unary(raw[i+1-count:])
+                bracketized: List[Token] = prep_unary(raw[i + 1 - count:])
                 bracketized, unused = bracketize(bracketized)
                 bracketized = unwrap_unary(bracketized)
                 r_value = calculate(parse(bracketized))
                 return None, KW_RETURN, r_value
             if token.val == KW_IMPORT:
-                statement: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_AS, raw[i+1-count:])
-                from_statement: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_FROM, raw[i+1-count:])
+                statement: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_AS, raw[i + 1 - count:])
+                from_statement: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_FROM, raw[i + 1 - count:])
                 alias: str = ""
                 if len(statement) > 1:
                     if len(statement[1]) != 1 or len(from_statement) > 1:
@@ -1318,7 +1330,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
             if token.val == KW_LET:
                 if i >= len(tokenized):
                     PyscriptSyntaxError("Invalid Syntax", True)
-                splitted: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_BE, raw[i+1-count:], -1)
+                splitted: List[List[Token]] = split_list_by_token(TT_KEYWORD, KW_BE, raw[i + 1 - count:], -1)
                 if len(splitted) != 2:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 if len(splitted[1]) != 1:
@@ -1329,9 +1341,9 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                     PyscriptSyntaxError("Invalid Syntax", True)
                 return TokDef(name.val, definition)
             if token.val == KW_REM_KW:
-                if i >= len(tokenized)-1:
+                if i >= len(tokenized) - 1:
                     PyscriptSyntaxError("Invalid Syntax", True)
-                kw_to_remove = raw[i+1-count:]
+                kw_to_remove = raw[i + 1 - count:]
                 if len(kw_to_remove) != 1:
                     PyscriptSyntaxError("Invalid Syntax", True)
                 tok_def: TokDef = TokDef.FindTokDef(kw_to_remove[0].val)
@@ -1350,7 +1362,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                 if raw[-1].type != TT_COLON_END:
                     PyscriptSyntaxError("Missing colon at end of 'switch' statement", True)
                 pre_parse(raw, extra_vars)
-                switch_value = calculate(parse(raw[i+1-count:len(raw)-1]))
+                switch_value = calculate(parse(raw[i + 1 - count:len(raw) - 1]))
                 return None, KW_SWITCH, switch_value
             if token.val == KW_CASE:
                 if i >= len(tokenized) - 1:
@@ -1358,7 +1370,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                 if raw[-1].type != TT_COLON_END:
                     PyscriptSyntaxError("Missing colon at end of 'case' statement", True)
                 pre_parse(raw, extra_vars)
-                return None, KW_CASE, calculate(parse(raw[i+1-count:len(raw)-1]))
+                return None, KW_CASE, calculate(parse(raw[i + 1 - count:len(raw) - 1]))
             if token.val == KW_HIDDEN:
                 if i < len(tokenized) - 1:
                     hidden_flag = True
@@ -1367,7 +1379,7 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
             if token.val == KW_ASSERT:
                 if i < len(tokenized) - 1:
                     pre_parse(raw)
-                    result = calculate(parse(raw[i+1-count:]))
+                    result = calculate(parse(raw[i + 1 - count:]))
                     if type(result) != bool:
                         PyscriptSyntaxError("Invalid Syntax", True)
                     if not result:
@@ -1411,15 +1423,15 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                         accessed = loc_var
                         break
                 if accessed is not None:
-                    if tokenized[i+1].pseudo_type != PT_ACCESSED:
-                        tokenized[i+1].type = TT_INT
-                        tokenized[i+1].val = accessed.value
-                        tokenized[i+1].pseudo_type = None
+                    if tokenized[i + 1].pseudo_type != PT_ACCESSED:
+                        tokenized[i + 1].type = TT_INT
+                        tokenized[i + 1].val = accessed.value
+                        tokenized[i + 1].pseudo_type = None
                     else:
                         tokenized[i + 1].type = TT_INT
                         tokenized[i + 1].val = accessed
                         tokenized[i + 1].pseudo_type = None
-                    del tokenized[i-1:i+1]
+                    del tokenized[i - 1:i + 1]
                     return parse(tokenized)
             elif next_token.type is None:
                 funcs.add(next_token.val)
@@ -1431,10 +1443,10 @@ def parse(tokenized: List[Token], raw: List[Token] = None, count: int = 0, extra
                         accessed = loc_var
                         break
                 if accessed is not None:
-                    create_var("0"+accessed.name, 0, [True, True], True, accessed.extra_args, accessed.run_func,
+                    create_var("0" + accessed.name, 0, [True, True], True, accessed.extra_args, accessed.run_func,
                                accessed.r_value)
                     imported = True
-                    imported_var = "0"+accessed.name
+                    imported_var = "0" + accessed.name
                 else:
                     PyscriptSyntaxError("Invalid Syntax", True)
         elif token.pseudo_type == PT_CALLED:
